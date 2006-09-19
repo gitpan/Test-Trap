@@ -1,0 +1,106 @@
+Revision history for Test-Trap
+
+0.0.16	Tue Sep 19 21:52:03 CEST 2006
+	Note dependency on perl 5.8.0 and Time::HiRes.
+	Pod updates to Builder.pm.
+	Added tests for layer permutation :raw:warn:stderr:stdout:exit:die.
+	Added tester tests for TODO and SKIP.
+
+0.0.15	Mon Sep 18 23:53:05 CEST 2006
+	Move the extension interface into its own Test::Trap::Builder.
+	Change the extension interface somewhat:
+	  - methods on the builder object, not the calling package;
+	  - simpler methods for making accessors;
+	  - methods also for registering test method prototypes;
+	  - generate test methods from accessor + test pairs;
+	  - ... even if the test or accessor is inherited;
+	  - &layer_implementation needs both $module and $Builder now;
+	  - update the tests accordingly.
+	Also, added some new tests for the builder.
+
+0.0.14	Tue Sep  5 16:40:13 CEST 2006
+	Rewrite the "layer:$name" methods:
+	  - return the layer implementation rather than be it, and
+	  - can handle multi_layer definitions as well,
+	  - changing &layer, &layer_implementation, and &multi_layer.
+	Update the POD accordingly.
+	Add an example using the extension interface.
+	Polish the POD, and add some more vertical spacing.
+
+0.0.13	Tue Aug 29 06:54:05 CEST 2006
+	Add the standard test methods.
+	Document them -- overall, not one by one.
+	Test them -- using Test::Tester.
+	Add a dependency on Test::Tester.
+	Add a trustme for the pod coverage check.
+	Add a dependency on Data::Dump (for quoting, more or less).
+	Add factories for accessors and test methods.
+	Let array accessors produce elements and slices as well.
+	Add extra test methods: did_die, did_exit, did_return, quiet.
+	Document these.
+	Test them -- using Test::Tester.
+
+0.0.12	Sun Aug 27 03:05:45 CEST 2006
+	Don't trap exits in children!  Revert to outer exit-handler instead.
+	Test undefined *CORE::GLOBAL::exit.
+	Test forked exits.
+	Document the fork/exit caveat.
+	Rename some layers: :return:raw are now :raw:flow.
+	Base non-empty layer specifications too on :default.
+	Tests updated accordingly.
+
+0.0.11	Sun Aug 27 01:51:30 CEST 2006
+	Test a bad class definition.
+	Clean up the code.
+
+0.0.10	Sun Aug 27 01:18:09 CEST 2006
+	Add tests for subclassing.
+	Implement subclassing.
+
+0.0.9	Sat Aug 26 23:51:26 CEST 2006
+	Implement layers as methods, anonymous or with mangled names.
+	Update the special layers test accordingly.
+	Move POD to beyond __END__.
+
+0.0.8	Sat Aug 26 22:19:53 CEST 2006
+	s/mode/leaveby/g;
+
+0.0.7   Thu Aug 24 04:35:04 CEST 2006
+	Implement user-defined trapper layers!  Wrappers are now layers!
+	Test trapper layers!
+
+0.0.6   Thu Aug 24 02:28:08 CEST 2006
+	Protect the method calls of the local $trap test.
+	Pull the wrapper list out of the exported sub and into its factory.
+	Add a &write_trapper factory to replace &_trap_std{err,out}.
+	Trap warnings as well.
+	Add tests for trapping warnings.
+
+0.0.5	Wed Aug 23 18:32:28 CEST 2006
+	Back to exporting just a scalar instead of the glob.
+	Export an anonymous closure combo instead of our $trap / &trap.
+	Eliminate our $trap / &trap.  (Use a factory instead.)
+	Update the tests accordingly.
+
+0.0.4   Wed Aug 23 15:44:00 CEST 2006
+	New test: Apply local() to the scalar.
+	Implementation: Export a glob instead of just the scalar.
+
+0.0.3   Wed Aug 23 03:39:03 CEST 2006
+	Decompose the different wrappers.  Eliminate the %trap hash.
+	Update tests to account for:
+	 - missing 'die' was '', is now undef;
+	 - void 'return' was [undef], is now [];
+	 - missing 'return' was context dependent, is now undef.
+
+0.0.2   Wed Aug 23 00:01:14 CEST 2006
+	Export a global scalar, by default $trap, instead of &trapped.
+	Make &trap merely the default name of the function.
+	Update tests accordingly.
+	Test for ->import failing in various ways.
+	Query exists &CORE::GLOBAL::exit instead of defined *...{CODE}.
+	Add pod.
+
+0.0.1   Sun Aug  6 15:26:47 CEST 2006
+        Began extracting useful stuff from messy old code.
+
