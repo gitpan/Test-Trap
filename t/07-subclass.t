@@ -1,6 +1,6 @@
 #!perl -T
 # -*- mode: cperl ; compile-command: "cd .. ; ./Build ; prove -vb t/07-*.t" -*-
-use Test::More tests => 4 + 9*2 + 6;
+use Test::More tests => 5 + 9*2 + 6;
 use IO::Handle;
 use Time::HiRes qw/alarm/;
 use strict;
@@ -130,6 +130,19 @@ BEGIN {
       );
 }
 
+BEGIN {
+  default {
+    package TT::badclass2;
+    use base 'Test::Trap';
+    $Builder->default_output_layer_backends(); # none!
+    $Builder->multi_layer( default => qw( flow stdout stderr warn ) );
+  };
+  like( $D->die,
+	qr/^No default backend and none specified for :stdout at ${\__FILE__} line/,
+	'Bad definition',
+      );
+}
+
 default { print "Hello"; warn "Hi!\n"; push @ARGV, 'D'; exit 1 };
 is( $D->exit, 1, '&default' );
 is( $D->stdout, "Hello", '.' );
@@ -140,7 +153,7 @@ ok( !exists $D->{outargv}, '.' );
 is_deeply( \@ARGV, ['D'], '.' );
 is_deeply( \@argv, ['A'], '.' );
 () = default { $D->outargv };
-like( $D->die, qr/^Can\'t locate object method "outargv" via package "Test::Trap" at /, '.' );
+like( $D->die, qr/^Can\'t locate object method "outargv" via package "Test::Trap" /, '.' );
 
 local $D; # guard me against cut-and-paste errors
 

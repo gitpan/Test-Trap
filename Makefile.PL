@@ -10,6 +10,7 @@ WriteMakefile
           'PREREQ_PM' => {
                            'Test::More' => 0,
                            'version' => 0,
+                           'File::Temp' => 0,
                            'Data::Dump' => 0,
                            'Test::Tester' => 0,
                            'Time::HiRes' => 0

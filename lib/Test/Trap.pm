@@ -1,5 +1,7 @@
 package Test::Trap;
 
+use version; $VERSION = qv('0.0.17');
+
 use strict;
 use warnings;
 use Carp qw( croak );
@@ -7,8 +9,6 @@ use IO::Handle;
 use Test::More ();
 use Data::Dump qw(dump);
 use Test::Trap::Builder;
-
-use version; our $VERSION = qv('0.0.16');
 
 my $B = Test::Trap::Builder->new;
 
@@ -123,6 +123,12 @@ $B->layer(die => $_) for sub {
 # Layers for STDOUT and STDERR, from the factory:
 $B->output_layer( stdout => \*STDOUT );
 $B->output_layer( stderr => \*STDERR );
+$B->default_output_layer_backends( qw/ tempfile perlio / );
+BEGIN {
+  # Make availible some backends:
+  use Test::Trap::Builder::TempFile;
+  eval q{ use Test::Trap::Builder::PerlIO }; # optional
+}
 
 # A simple layer for warnings:
 $B->layer(warn => $_) for sub {
@@ -209,7 +215,7 @@ Test::Trap - Trap exit codes, exceptions, output, etc.
 
 =head1 VERSION
 
-Version 0.0.16
+Version 0.0.17
 
 =head1 SYNOPSIS
 
@@ -294,6 +300,26 @@ pushing :flow on a trap will remove all layers below.
 
 Layers trapping Perl output on STDOUT and STDERR, respectively.
 
+=head2 :stdout(perlio), :stderr(perlio)
+
+As above, but specifying a backend implemented using PerlIO::scalar.
+If this backend is not availible (typically if PerlIO is not), this is
+an error.
+
+=head2 :stdout(tempfile), :stderr(tempfile)
+
+As above, but specifying a backend implemented using File::Temp.  Note
+that this is the default implementation, whenever it is availible, so
+the only effect of specifying it, is that if it is not availible, it
+will fail, rather than fall back on another implementation.
+
+=head2 :stdout(a;b;c), :stderr(a,b,c)
+
+(Either syntax, commas or semicolons, is permitted, as is any number
+of names in the list.)  As above, but specifying the backend
+implementation by the first existing name among I<a>, I<b>, and I<c>.
+If no such implementation is availible, this is an error.
+
 =head2 :warn
 
 A layer trapping warnings, with additionally tee: If STDERR is open,
@@ -359,23 +385,19 @@ also availible.  By default, these are a few standard tests from
 Test::More, plus the C<nok> test, being a negated C<ok> test.  All for
 convenience:
 
-=over
+=head2 I<ACCESSOR>_ok        [INDEX,] TEST_NAME
 
-=item I<ACCESSOR>_ok        [INDEX,] TEST_NAME
+=head2 I<ACCESSOR>_nok       [INDEX,] TEST_NAME
 
-=item I<ACCESSOR>_nok       [INDEX,] TEST_NAME
+=head2 I<ACCESSOR>_is        [INDEX,] SCALAR, TEST_NAME
 
-=item I<ACCESSOR>_is        [INDEX,] SCALAR, TEST_NAME
+=head2 I<ACCESSOR>_isnt      [INDEX,] SCALAR, TEST_NAME
 
-=item I<ACCESSOR>_isnt      [INDEX,] SCALAR, TEST_NAME
+=head2 I<ACCESSOR>_like      [INDEX,] REGEX, TEST_NAME
 
-=item I<ACCESSOR>_like      [INDEX,] REGEX, TEST_NAME
+=head2 I<ACCESSOR>_unlike    [INDEX,] REGEX, TEST_NAME
 
-=item I<ACCESSOR>_unlike    [INDEX,] REGEX, TEST_NAME
-
-=item I<ACCESSOR>_is_deeply          STRUCTURE, TEST_NAME
-
-=back
+=head2 I<ACCESSOR>_is_deeply          STRUCTURE, TEST_NAME
 
 I<INDEX> is not optional:  It is required for array accessors (like
 C<return> and C<warn>), and disallowed for scalar accessors.  Note
@@ -427,9 +449,8 @@ handler.  More precisely: This module installs its own __WARN__
 handler on entry of the block, and restores the previous one, if any,
 only upon leaving the block.
 
-The (default) :stdout and :stderr handlers use in-memory files, and so
-will not (indeed cannot) trap output from forked-off processes --
-including system() calls.
+The (default) :stdout and :stderr handlers will not trap output from
+system() calls.
 
 Threads?  No idea.  It might even work correctly.
 

@@ -25,6 +25,6 @@ trap {
   trap { exit };
   is( $trap->exit, 0, "Trapped the inner exit");
 };
-like( $trap->stderr, qr/^Subroutine CORE::GLOBAL::exit redefined at ${\__FILE__} line/, 'Override warning' );
+like( $trap->stderr, qr/^Subroutine (?:CORE::GLOBAL::)?exit redefined at ${\__FILE__} line/, 'Override warning' );
 
 exit;

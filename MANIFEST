@@ -2,6 +2,8 @@ Build.PL
 Changes
 lib/Test/Trap.pm
 lib/Test/Trap/Builder.pm
+lib/Test/Trap/Builder/PerlIO.pm
+lib/Test/Trap/Builder/TempFile.pm
 Makefile.PL
 MANIFEST
 META.yml
@@ -9,7 +11,9 @@ README
 t/00-load.t
 t/01-basic.t
 t/02-reentrant.t
-t/03-files.t
+t/03-files-perlio.t
+t/03-files-tempfile.t
+t/03-files.pl
 t/04-exit.t
 t/05-import.t
 t/06-layers.t

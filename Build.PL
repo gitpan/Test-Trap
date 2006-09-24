@@ -12,9 +12,10 @@ my $builder = Module::Build->new
     { 'Test::Tester'      => 0,
       'Test::More'        => 0,
       'Time::HiRes'       => 0,
+      'File::Temp'        => 0,
       'Data::Dump'        => 0,
       'version'           => 0,
-      'perl'              => '5.8.0', # Okay?  Needs open WHATEVER, '>', \$scalar.
+      'perl'              => '5.6.0', # certainly 5.6.2 ...
     },
     add_to_cleanup      => [ 'Test-Trap-*' ],
   );

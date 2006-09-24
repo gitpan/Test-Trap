@@ -1,5 +1,30 @@
 Revision history for Test-Trap
 
+0.0.17	Sat Sep 23 00:47:13 CEST 2006
+	Overview:
+	 - Test::Temp gets new optional layers:
+		:stdout(perlio)
+		:stdout(tempfile)
+		:stderr(perlio)
+		:stderr(tempfile)
+	 - Test::Temp interface is otherwise unchanged.
+	 - Test::Trap::Builder interface is mostly unchanged, but now:
+	    - treats braces in layer names as syntactical;
+	    - has an interface for registering output layer backends;
+	    - also lets you register default backends;
+	    - has some more changes in non-interface (internal) functions.
+	 - Test::Trap::Builder::TempFile added.
+	 - Test::Trap::Builder::PerlIO added.
+	Added a File::Temp backend for output layers, and require it.
+	Made the PerlIO backend optional, and require no more than 5.6.0.
+	Moved each backend to its own file.
+	Update the tests to cover both backends.
+	Skip the PerlIO backend tests if PerlIO is not availible.
+	For whatever reason, make noisy ugly META.yml after upgrades.
+	Let the user specify implementation, f ex: ":stdout(perlio)".
+	Test this new interface.
+	Update the POD.
+
 0.0.16	Tue Sep 19 21:52:03 CEST 2006
 	Note dependency on perl 5.8.0 and Time::HiRes.
 	Pod updates to Builder.pm.

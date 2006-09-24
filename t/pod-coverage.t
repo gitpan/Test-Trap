@@ -40,5 +40,6 @@ my $test =
       | is_deeply
       ) $
     /x;
-all_pod_coverage_ok({ trustme => [$layer, $test] });
+my $hacks = qr/^croak$/;
+all_pod_coverage_ok({ trustme => [$layer, $test, $hacks] });
 

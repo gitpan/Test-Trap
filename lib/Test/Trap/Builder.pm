@@ -1,26 +1,40 @@
 package Test::Trap::Builder;
 
+use version; $VERSION = qv('0.0.3');
+
 use strict;
 use warnings;
-use Carp qw( croak );
+use Carp qw(croak);
+BEGIN {
+  # @CARP_NOT only exists since 5.8.0, so we cheat, using @ISA:
+  no warnings 'redefine';
+  *croak = sub {
+    # since we're croaking, it is to be hoped that the @ISA pollution
+    # is not important ... but, ouch!
+    @Test::Trap::Builder::ISA = 'Test::Trap';
+    goto &Carp::croak;
+  }
+}
 use Data::Dump qw(dump);
 
-use version; our $VERSION = qv('0.0.2');
-
-my $builder = bless { test => {}, accessor => {} };
+my $builder = bless
+  { test => {},
+    accessor => {},
+    output_layer_backend => {},
+  };
 
 sub new { $builder }
 
 sub _layer {
-  my ($pkg, $name, @subs) = @_;
+  my ($pkg, $name, $sub) = @_;
   no strict 'refs';
-  *{"$pkg\::layer:$name"} = sub { @subs };
+  *{"$pkg\::layer:$name"} = $sub;
 }
 
 sub layer {
   my $this = shift;
   my ($name, $sub) = @_;
-  _layer(scalar caller, $name, $sub);
+  _layer(scalar caller, $name, sub { $sub });
 }
 
 sub multi_layer {
@@ -29,36 +43,73 @@ sub multi_layer {
   my $callpkg = caller;
   my @layer = eval { $builder->layer_implementation($callpkg, @_) };
   chomp($@), croak "$@; bad multi_layer" if $@;
-  _layer(scalar caller, $name, @layer);
+  _layer(scalar caller, $name, sub { @layer });
 }
 
 sub output_layer {
   my $this = shift;
-  my ($name, $gref) = @_;
+  my ($name, $globref) = @_;
   my $code = sub {
-    my $self = shift; my $next = pop;
-    my $is_open = defined fileno *$gref;
-    local *$gref;
-    $self->{$name} = '';
-    if ($is_open) {
-      no warnings 'io';
-      open *$gref, '>', \$self->{$name};
-      $gref->autoflush(1);
+    my $class = shift;
+    my ($arg) = @_;
+    my $implementation;
+  IMPLEMENTATION: {
+      my @backends = defined($arg) ?
+	split /[,;]/, $arg : eval { my $m = 'backend:output'; $class->$m }
+	  or croak "No default backend and none specified for :$name";
+      for my $backend (@backends) {
+	$implementation = $builder->{output_layer_backend}{$backend}
+	  and last IMPLEMENTATION;
+      }
+      croak "No output layer implementation found for " . dump(@backends);
     }
-    $self->$next(@_);
+    return sub {
+      my $self = shift; my $next = pop;
+      my $is_open = defined fileno *$globref;
+      local *$globref;
+      $self->{$name} = '';
+      my $scoper = $is_open && $implementation->($self, $name, $globref);
+      $self->$next(@_);
+    };
   };
   _layer(scalar caller, $name, $code);
 }
 
+sub output_layer_backend {
+  my $this = shift;
+  my ($name, $backend) = @_;
+  my $h = $builder->{output_layer_backend};
+  $h->{$name} = $backend;
+}
+
+sub default_output_layer_backends {
+  my $this = shift;
+  my @backends = @_;
+  my $trapper = caller;
+  no strict 'refs';
+  *{"$trapper\::backend:output"} = sub { @backends };
+}
+
 sub layer_implementation {
   my $this = shift;
-  my $pkg = shift;
+  my $trapper = shift;
   my @r;
   for (@_) {
-    my $m = "layer:$_";
-    UNIVERSAL::isa($_, 'CODE') ? push @r, $_  :
-    eval{ $pkg->can($m) }      ? push @r, $pkg->$m :
-    die qq[Unknown trapper layer "$_"\n];
+    if (UNIVERSAL::isa($_, 'CODE')) {
+      push @r, $_;
+      next;
+    }
+    my ($name, $arg) =
+      /^ ( [^\(]+ )      # meth: anything but '('
+         (?:             # begin optional group
+             \(          # literal '('
+             ( [^\)]* )  # arg: anything but ')'
+             \)          # literal ')'
+         )?              # end optional group
+      \z/x;
+    my $meth = "layer:$name";
+    $trapper->can($meth) or die qq[Unknown trapper layer "$_"\n];
+    push @r, $trapper->$meth($arg);
   }
   return @r;
 }
@@ -169,7 +220,7 @@ Test::Trap::Builder - Backend for building test traps
 
 =head1 VERSION
 
-Version 0.0.2
+Version 0.0.3
 
 =head1 SYNOPSIS
 
@@ -233,16 +284,35 @@ with C<layer:>), and so inherited like any other method.
 
 =head2 new
 
-Returns a trivial singleton object.
+Returns a singleton object.  Don't expect this module to work with
+a different object of this class.
 
 =head2 layer NAME, CODE
 
-Makes a layer I<NAME> implemented by I<CODE>.
+Makes a layer I<NAME> implemented by I<CODE>.  Unless it is a
+terminating or otherwise special layer, the implementation should
+expect the result object as the first argument and the next layer as
+the final argument.
 
 =head2 output_layer NAME, GLOBREF
 
 Makes a layer I<NAME> for trapping output on the file handle of the
 I<GLOBREF>, using I<NAME> also as the attribute name.
+
+=head2 output_layer_backend NAME, CODE
+
+Registers, by I<NAME>, a I<CODE> implementing an output trap layer
+backend.  The I<CODE> will be called with the result object, the
+(layer) name, and the output handle's globref as parameters.  It may
+return an object, which then will be kept alive until after the call
+to lower levels (that is to say, DESTROY methods may be useful -- see
+the L<Test::Trap::Builder::TempFile> implementation).
+
+=head2 default_output_layer_backends NAMES
+
+For the calling trapper package and those that inherit from it, the
+first found among the output layer backends named by I<NAMES> will be
+used when no backend is specified.
 
 =head2 multi_layer NAME, LAYERS
 
@@ -259,10 +329,10 @@ layer known to the I<PACKAGE>, an exception is raised.
 
 =head2 test_method NAME, IS_INDEXING, TEST_NAME_INDEX, CODE
 
-Registers a test I<NAME> for the calling package.  Makes test methods
-of the form I<ACCESSOR>_I<NAME> in the proper (i.e. inheriting)
-package for every registered I<ACCESSOR> of a package that either
-inherits or is inherited by the calling package.
+Registers a test I<NAME> for the calling trapper package.  Makes test
+methods of the form I<ACCESSOR>_I<NAME> in the proper
+(i.e. inheriting) package for every registered I<ACCESSOR> of a
+package that either inherits or is inherited by the calling package.
 
 =head2 accessor NAMED_PARAMS
 
@@ -301,8 +371,15 @@ implementation, an accessord is generated and registered.
 
 =head1 CAVEATS
 
-The layers generated by output_layer() use in-memory files, and so
-will not (indeed cannot) trap output from forked-off processes --
+The interface of this module is likely to remain somewhat in flux for
+a while yet.
+
+If File::Temp is not availible, the layers generated by output_layer()
+use in-memory files, and so will not (indeed cannot) trap output from
+forked-off processes -- including system() calls.
+
+Even if File::Temp is availible, the file descriptors aren't right, so
+you won't in general be able to trap output from exec'ed commands --
 including system() calls.
 
 Threads?  No idea.  It might even work correctly.
