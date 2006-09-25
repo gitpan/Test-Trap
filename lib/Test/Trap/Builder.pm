@@ -1,21 +1,19 @@
 package Test::Trap::Builder;
 
-use version; $VERSION = qv('0.0.3');
+use version; $VERSION = qv('0.0.4');
 
 use strict;
 use warnings;
-use Carp qw(croak);
-BEGIN {
-  # @CARP_NOT only exists since 5.8.0, so we cheat, using @ISA:
-  no warnings 'redefine';
-  *croak = sub {
-    # since we're croaking, it is to be hoped that the @ISA pollution
-    # is not important ... but, ouch!
-    @Test::Trap::Builder::ISA = 'Test::Trap';
-    goto &Carp::croak;
-  }
-}
 use Data::Dump qw(dump);
+use Carp qw(croak);
+our (@CARP_NOT, @ISA);
+use constant GOT_CARP_NOT => $] >= 5.008;
+
+sub _carpnot ($) {
+  my $pkg = shift;
+  return if $pkg eq __PACKAGE__;
+  return $pkg;
+}
 
 my $builder = bless
   { test => {},
@@ -41,8 +39,7 @@ sub multi_layer {
   my $this = shift;
   my $name = shift;
   my $callpkg = caller;
-  my @layer = eval { $builder->layer_implementation($callpkg, @_) };
-  chomp($@), croak "$@; bad multi_layer" if $@;
+  my @layer = $builder->layer_implementation($callpkg, @_);
   _layer(scalar caller, $name, sub { @layer });
 }
 
@@ -92,6 +89,8 @@ sub default_output_layer_backends {
 
 sub layer_implementation {
   my $this = shift;
+  # Directly calling layer_implementation, we should know what we're doing:
+  local( GOT_CARP_NOT ? @CARP_NOT : @ISA ) = _carpnot caller;
   my $trapper = shift;
   my @r;
   for (@_) {
@@ -108,7 +107,7 @@ sub layer_implementation {
          )?              # end optional group
       \z/x;
     my $meth = "layer:$name";
-    $trapper->can($meth) or die qq[Unknown trapper layer "$_"\n];
+    $trapper->can($meth) or croak qq[Unknown trapper layer "$_"];
     push @r, $trapper->$meth($arg);
   }
   return @r;
@@ -220,7 +219,7 @@ Test::Trap::Builder - Backend for building test traps
 
 =head1 VERSION
 
-Version 0.0.3
+Version 0.0.4
 
 =head1 SYNOPSIS
 

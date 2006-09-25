@@ -1,5 +1,10 @@
 Revision history for Test-Trap
 
+0.0.18	Mon Sep 25 23:49:48 CEST 2006
+	Basically just pushing to get a new version out.
+	Packaged with a newer MB to get a (hopefully) better META.yml.
+	Cleaned up the error messages somewhat.
+
 0.0.17	Sat Sep 23 00:47:13 CEST 2006
 	Overview:
 	 - Test::Temp gets new optional layers:

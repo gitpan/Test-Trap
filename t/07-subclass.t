@@ -125,7 +125,7 @@ BEGIN {
     $Builder->multi_layer( trouble => qw( warn no_such_layer ) );
   };
   like( $D->die,
-	qr/^Unknown trapper layer "no_such_layer"; bad multi_layer at ${\__FILE__} line/,
+	qr/^Unknown trapper layer "no_such_layer" at ${\__FILE__} line/,
 	'Bad definition',
       );
 }

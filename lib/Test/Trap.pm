@@ -1,6 +1,6 @@
 package Test::Trap;
 
-use version; $VERSION = qv('0.0.17');
+use version; $VERSION = qv('0.0.18');
 
 use strict;
 use warnings;
@@ -22,18 +22,17 @@ sub import {
     $sym =~ s/^://               ? push @layer,    split/:/, $sym :
     $sym =~ s/^\$//              ? push @scalar,   $sym :
     $sym !~ m/^[@%*]/            ? push @function, $sym :
-    croak qq["$sym" is not exported by the $module module; import error];
+    croak qq["$sym" is not exported by the $module module];
   }
   if (@function > 1) {
-    croak qq[The $module module does not export more than one function; import error];
+    croak qq[The $module module does not export more than one function];
   }
   if (@scalar > 1) {
-    croak qq[The $module module does not export more than one scalar; import error];
+    croak qq[The $module module does not export more than one scalar];
   }
   my $function = @function ? $function[0] : 'trap';
   my $scalar = @scalar ? $scalar[0] : 'trap';
-  eval { @layer = $B->layer_implementation($module, default => @layer) };
-  chomp($@), croak "$@; import error" if $@;
+  @layer = $B->layer_implementation($module, default => @layer);
   no strict 'refs';
   my $gref = \*{"$callpkg\::$scalar"};
   *$gref = \ do { my $x = bless {}, $module };
@@ -215,7 +214,7 @@ Test::Trap - Trap exit codes, exceptions, output, etc.
 
 =head1 VERSION
 
-Version 0.0.17
+Version 0.0.18
 
 =head1 SYNOPSIS
 
