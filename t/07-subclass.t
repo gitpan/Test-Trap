@@ -1,13 +1,31 @@
 #!perl -T
 # -*- mode: cperl ; compile-command: "cd .. ; ./Build ; prove -vb t/07-*.t" -*-
-use Test::More tests => 5 + 9*2 + 6;
+use Test::More tests => 5 + 9*3 + 9;
 use IO::Handle;
-use Time::HiRes qw/alarm/;
+use File::Temp qw( tempfile );
 use strict;
 use warnings;
 
 use Test::Trap::Builder;
 my $Builder; BEGIN { $Builder = Test::Trap::Builder->new }
+
+STDOUT: {
+  close STDOUT;
+  my ($outfh, $outname) = tempfile;
+  open STDOUT, '>', $outname;
+  STDOUT->autoflush(1);
+  print STDOUT '';
+  sub stdout () { local $/; open OUT, '<', $outname or die; <OUT> }
+}
+
+STDERR: {
+  close STDERR;
+  my ($errfh, $errname) = tempfile;
+  open STDERR, '>', $errname;
+  STDERR->autoflush(1);
+  print STDOUT '';
+  sub stderr () { local $/; open ERR, '<', $errname or die; <ERR> }
+}
 
 local @ARGV; # in case some harness wants to mess with it ...
 my @argv = ('A');
@@ -39,10 +57,12 @@ BEGIN {
   $INC{'TT/subclass.pm'} = 'Hack!';
 }
 
+my $GOT_UALARM;
+# The example from Test::Trap::Builder, now covering for missing ualarm:
 BEGIN {
   package TT::examples;
   use base 'Test::Trap';
-  use Time::HiRes qw/ualarm/;
+  $GOT_UALARM = eval 'use Time::HiRes qw/ualarm/; 1';
   my $B = Test::Trap::Builder->new;
 
   # example (layer:timeout):
@@ -54,10 +74,10 @@ BEGIN {
 	$SIG{ALRM} = sub {die};
 	die;
       };
-      ualarm 1000, 1; # one second max, then die repeatedly!
+      Time::HiRes::ualarm(1000, 1); # one second max, then die repeatedly!
       $self->$next(@_);
     };
-    alarm 0;
+    Time::HiRes::alarm(0);
     if ($self->{timeout}) {
       $self->{leaveby} = 'timeout';
       delete $self->{$_} for qw/ die exit return /;
@@ -80,7 +100,9 @@ BEGIN {
   };
   # no accessor for this layer
 
-  $B->multi_layer(flow => qw/ raw die exit timeout /);
+  my @flow = qw/ raw die exit /;
+  push @flow, 'timeout' if $GOT_UALARM;
+  $B->multi_layer(flow => @flow);
   $B->multi_layer(default => qw/ flow stdout stderr warn simpletee /);
 
   $B->test_method( cmp_ok => 1, 2, \&Test::More::cmp_ok );
@@ -171,14 +193,34 @@ is_deeply( $S->return(0), \@argv, '.' );
 
 local $S; # guard me against cut-and-paste errors
 
-# Protect against tainted PATH &c ...
-ENVING: {
+# First test for the example:
+example { print "Hello"; warn "Hi!\n"; push @ARGV, 'E'; exit 1 };
+is( $E->exit, 1, '&example' );
+is( $E->stdout, "Hello", '.' );
+is( $E->stderr, "Hi!\n", '.' );
+is_deeply( $E->warn, ["Hi!\n"], '.' );
+ok( !exists $E->{inargv}, '.' );
+ok( !exists $E->{outargv}, '.' );
+is_deeply( \@ARGV, ['D', 'E'], '.' );
+is_deeply( \@argv, ['A', 'S'], '.' );
+() = default { $E->outargv };
+like( $D->die, qr/^Can\'t locate object method "outargv" via package "TT::examples" /, '.' );
+
+# Second, cmp_ok and simpletee tests for the example:
+ok( default { $E->can('return_cmp_ok') ? 1 : 0 }, 'return_cmp_ok has been generated' );
+is( stdout, "Hello", '.' );
+is( stderr, "Hi!\n", '.' );
+
+# Third, timeout, test for the example:
+SKIP: {
+  skip 'Needs Time::HiRes::ualarm', 6 unless $GOT_UALARM;
+  # Protect against tainted PATH &c ...
   local $ENV{PATH} = '';
   local $ENV{BASH_ENV} = '';
   my ($PERL) = $^X =~ /^([\w.\/:-]+)$/;
-  skip 5, 'Odd perl path' unless $PERL;
+  skip 'Odd perl path', 6 unless $PERL;
   () = example { eval { fork or exec $PERL, '-e', 'sleep 2' or die $!; wait; }; die $@ if $@; exit 5; };
-  is( $E->timeout, 1, '&example' );
+  is( $E->timeout, 1, '&example w/timout' );
   is( $E->leaveby, 'timeout', '.' );
   is( $E->die, undef, '.' );
   is( $E->exit, undef, '.' );

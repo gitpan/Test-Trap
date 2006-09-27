@@ -11,7 +11,6 @@ my $builder = Module::Build->new
     requires =>
     { 'Test::Tester'      => 0,
       'Test::More'        => 0,
-      'Time::HiRes'       => 0,
       'File::Temp'        => 0,
       'Data::Dump'        => 0,
       'version'           => 0,

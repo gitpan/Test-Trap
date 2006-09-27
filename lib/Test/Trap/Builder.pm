@@ -1,6 +1,6 @@
 package Test::Trap::Builder;
 
-use version; $VERSION = qv('0.0.4');
+use version; $VERSION = qv('0.0.5');
 
 use strict;
 use warnings;
@@ -9,7 +9,7 @@ use Carp qw(croak);
 our (@CARP_NOT, @ISA);
 use constant GOT_CARP_NOT => $] >= 5.008;
 
-sub _carpnot ($) {
+sub _carpnot_for ($) {
   my $pkg = shift;
   return if $pkg eq __PACKAGE__;
   return $pkg;
@@ -90,7 +90,7 @@ sub default_output_layer_backends {
 sub layer_implementation {
   my $this = shift;
   # Directly calling layer_implementation, we should know what we're doing:
-  local( GOT_CARP_NOT ? @CARP_NOT : @ISA ) = _carpnot caller;
+  local( GOT_CARP_NOT ? @CARP_NOT : @ISA ) = _carpnot_for caller;
   my $trapper = shift;
   my @r;
   for (@_) {
@@ -219,56 +219,21 @@ Test::Trap::Builder - Backend for building test traps
 
 =head1 VERSION
 
-Version 0.0.4
+Version 0.0.5
 
 =head1 SYNOPSIS
 
   package My::Test::Trap;
-  use base 'Test::Trap'; # for example
-  use Test::Trap::Builder;
 
+  use Test::Trap::Builder;
   my $B = Test::Trap::Builder->new;
 
-  # example (layer:timeout):
-  use Time::HiRes qw/ualarm/;
-  $B->layer( timeout => $_ ) for sub {
-    my $self = shift; my $next = pop;
-    eval {
-      local $SIG{ALRM} = sub {
-	$self->{timeout} = 1; # simple truth
-	$SIG{ALRM} = sub {die};
-	die;
-      };
-      ualarm 1000, 1; # one second max, then die repeatedly!
-      $self->$next(@_);
-    };
-    alarm 0;
-    if ($self->{timeout}) {
-      $self->{leaveby} = 'timeout';
-      delete $self->{$_} for qw/ die exit return /;
-    }
-  };
-  $B->accessor( is_leaveby => 1,
-		simple => ['timeout'],
-	      );
+  $B->layer( $layer_name => \&layer_implementation );
+  $B->accessor( simple => [ $layer_name ] );
 
-  # example (layer:simpletee):
-  $B->layer( simpletee => $_ ) for sub {
-    my $self = shift; my $next = pop;
-    for (qw/ stdout stderr /) {
-      next unless exists $self->{$_};
-      die "Too late to tee $_";
-    }
-    $self->$next(@_);
-    print STDOUT $self->{stdout} if exists $self->{stdout};
-    print STDERR $self->{stderr} if exists $self->{stderr};
-  };
-  # no accessor for this layer
+  $B->multi_layer( $multi_name => @names );
 
-  $B->multi_layer(flow => qw/ raw die exit timeout /);
-  $B->multi_layer(default => qw/ flow stdout stderr warn simpletee /);
-
-  $B->test_method( cmp_ok => 1, 2, \&Test::More::cmp_ok );
+  $B->test_method( $test_name => 0, $name_index, \&test_function );
 
 =head1 DESCRIPTION
 
@@ -328,9 +293,9 @@ layer known to the I<PACKAGE>, an exception is raised.
 
 =head2 test_method NAME, IS_INDEXING, TEST_NAME_INDEX, CODE
 
-Registers a test I<NAME> for the calling trapper package.  Makes test
-methods of the form I<ACCESSOR>_I<NAME> in the proper
-(i.e. inheriting) package for every registered I<ACCESSOR> of a
+Registers a test method template I<NAME> for the calling trapper
+package.  Makes test methods of the form I<ACCESSOR>_I<NAME> in the
+proper (i.e. inheriting) package for every registered I<ACCESSOR> of a
 package that either inherits or is inherited by the calling package.
 
 =head2 accessor NAMED_PARAMS
@@ -367,6 +332,60 @@ Should be a reference to a hash.  For each pair, a name and an
 implementation, an accessord is generated and registered.
 
 =back
+
+=head1 EXAMPLE
+
+A cmoplete example, implementing a I<timeout> layer (depending on
+Time::HiRes::ualarm being present), a I<simpletee> layer (printing the
+trapped stdout/stderr to the original file handles after the trap has
+sprung), and a I<cmp_ok> test method template:
+
+  package My::Test::Trap;
+  use base 'Test::Trap'; # for example
+  use Test::Trap::Builder;
+
+  my $B = Test::Trap::Builder->new;
+
+  # example (layer:timeout):
+  use Time::HiRes qw/ualarm/;
+  $B->layer( timeout => $_ ) for sub {
+    my $self = shift; my $next = pop;
+    eval {
+      local $SIG{ALRM} = sub {
+	$self->{timeout} = 1; # simple truth
+	$SIG{ALRM} = sub {die};
+	die;
+      };
+      ualarm 1000, 1; # one second max, then die repeatedly!
+      $self->$next(@_);
+    };
+    alarm 0;
+    if ($self->{timeout}) {
+      $self->{leaveby} = 'timeout';
+      delete $self->{$_} for qw/ die exit return /;
+    }
+  };
+  $B->accessor( is_leaveby => 1,
+		simple => ['timeout'],
+	      );
+
+  # example (layer:simpletee):
+  $B->layer( simpletee => $_ ) for sub {
+    my $self = shift; my $next = pop;
+    for (qw/ stdout stderr /) {
+      next unless exists $self->{$_};
+      die "Too late to tee $_";
+    }
+    $self->$next(@_);
+    print STDOUT $self->{stdout} if exists $self->{stdout};
+    print STDERR $self->{stderr} if exists $self->{stderr};
+  };
+  # no accessor for this layer
+
+  $B->multi_layer(flow => qw/ raw die exit timeout /);
+  $B->multi_layer(default => qw/ flow stdout stderr warn simpletee /);
+
+  $B->test_method( cmp_ok => 1, 2, \&Test::More::cmp_ok );
 
 =head1 CAVEATS
 

@@ -1,7 +1,20 @@
 Revision history for Test-Trap
 
+0.0.19	Wed Sep 27 20:48:20 CEST 2006
+	No new functionality -- just bugfixes!
+	Address three portability issues:
+	 - added binmode to the second handle on the tempfile;
+	 - skip timout tests if Time::HiRes::ualarm cannot be imported;
+	 - todo & skip the fork test on windows;
+	 - thanks go to Alexandr Ciornii for reporting these failures!
+	Also:
+	 - document the fork() issue on Windows as a Test::Trap bug;
+	 - just skip the fork tests on platforms without fork;
+	 - drop the Time::HiRes dependency (we only need it for a test);
+	 - a little more POD and code (readability) cleanup.
+
 0.0.18	Mon Sep 25 23:49:48 CEST 2006
-	Basically just pushing to get a new version out.
+	Basically just pushing to get a well-packaged version out.
 	Packaged with a newer MB to get a (hopefully) better META.yml.
 	Cleaned up the error messages somewhat.
 

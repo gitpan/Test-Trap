@@ -1,6 +1,6 @@
 package Test::Trap::Builder::PerlIO;
 
-use version; $VERSION = qv('0.0.2');
+use version; $VERSION = qv('0.0.3');
 
 use strict;
 use warnings;
@@ -28,13 +28,16 @@ Test::Trap::Builder::PerlIO - Output layer backend using PerlIO::scalar
 
 =head1 VERSION
 
-Version 0.0.2
+Version 0.0.3
 
 =head1 DESCRIPTION
 
 This module provides an implementation I<perlio>, based on
-PerlIO::scalar, for any output layer on the trap -- see L<Test::Trap>
-(:stdout and :stderr) and L<Test::Trap::Builder> (output_layer).
+PerlIO::scalar, for the trap's output layers.  Note that you may
+specify different implementations for each output layer on the trap.
+
+See also L<Test::Trap> (:stdout and :stderr) and
+L<Test::Trap::Builder> (output_layer).
 
 =head1 CAVEATS
 

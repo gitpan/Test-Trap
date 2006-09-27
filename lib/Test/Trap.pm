@@ -1,6 +1,6 @@
 package Test::Trap;
 
-use version; $VERSION = qv('0.0.18');
+use version; $VERSION = qv('0.0.19');
 
 use strict;
 use warnings;
@@ -214,7 +214,7 @@ Test::Trap - Trap exit codes, exceptions, output, etc.
 
 =head1 VERSION
 
-Version 0.0.18
+Version 0.0.19
 
 =head1 SYNOPSIS
 
@@ -454,6 +454,10 @@ system() calls.
 Threads?  No idea.  It might even work correctly.
 
 =head1 BUGS
+
+On Windows, fork() within a trap appears to crash perl.  (This is a
+TODO:  I'm not sure if this can be remedied, but the least we can do
+is fail more nicely.)
 
 Please report any bugs or feature requests directly to the author.
 

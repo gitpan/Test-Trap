@@ -1,8 +1,27 @@
 #!perl
 # -*- mode: cperl ; compile-command: "cd .. ; ./Build ; prove -vb t/08-*.t" -*-
-use Test::More tests => 15;
+use Test::More;
 use strict;
 use warnings;
+
+BEGIN {
+  my $tests = 15;
+  use Config;
+  if ($^O eq 'MSWin32') {
+    plan tests => $tests;
+    # Hack up a TODO & SKIP + exit -- what, no shortcut?
+  TODO: {
+      todo_skip 'These tests appear to crash perl on Windows', $tests;
+    };
+    exit;
+  }
+  elsif (!$Config{d_fork}) {
+    plan skip_all => 'Fork tests are irrelevant without fork()';
+  }
+  else {
+    plan tests => $tests;
+  }
+}
 
 my $flag;
 BEGIN {

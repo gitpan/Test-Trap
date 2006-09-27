@@ -43,7 +43,6 @@ STDOUT: {
   STDOUT->autoflush(1);
   print STDOUT '';
   sub stdout () { local $/; open OUT, '<', $outname or die; <OUT> }
-#  sub stdout () { local(*ARGV, $/) = [ $outname ]; scalar <> }
 }
 
 STDERR: {

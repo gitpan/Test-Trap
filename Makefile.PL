@@ -12,8 +12,7 @@ WriteMakefile
                            'version' => 0,
                            'File::Temp' => 0,
                            'Data::Dump' => 0,
-                           'Test::Tester' => 0,
-                           'Time::HiRes' => 0
+                           'Test::Tester' => 0
                          }
         )
 ;

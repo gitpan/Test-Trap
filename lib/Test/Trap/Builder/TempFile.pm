@@ -1,6 +1,6 @@
 package Test::Trap::Builder::TempFile;
 
-use version; $VERSION = qv('0.0.2');
+use version; $VERSION = qv('0.0.3');
 
 use strict;
 use warnings;
@@ -14,8 +14,10 @@ sub import {
     my ($result, $name, $globref) = @_;
     my $scoper = bless { result => $result, name => $name, pid => $$ };
     @{$scoper}{qw/fh file/} = tempfile;
+    binmode $scoper->{fh}; # superfluous?
     no warnings 'io';
     open *$globref, '>>', $scoper->{file};
+    binmode *$globref; # must write as we read.
     $globref->autoflush(1);
     return $scoper;
   };
@@ -25,7 +27,7 @@ sub DESTROY {
   my $self = shift;
   my ($result, $name, $fh, $file, $pid) = @{$self}{qw/ result name fh file pid/};
   # if the file is opened by some other process, that one should deal with it:
-  return unless $pid == $$;
+  return unless $pid == $$; # should work for pseudo-forks too (per perlfork)
   local $/;
   $result->{$name} .= <$fh>;
 }
@@ -40,13 +42,16 @@ Test::Trap::Builder::TempFile - Output layer backend using File::Temp
 
 =head1 VERSION
 
-Version 0.0.2
+Version 0.0.3
 
 =head1 DESCRIPTION
 
 This module provides an implementation I<tempfile>, based on
-File::Temp, for any output layer on the trap -- see L<Test::Trap>
-(:stdout and :stderr) and L<Test::Trap::Builder> (output_layer).
+File::Temp, for the trap's output layers.  Note that you may specify
+different implementations for each output layer on the trap.
+
+See also L<Test::Trap> (:stdout and :stderr) and
+L<Test::Trap::Builder> (output_layer).
 
 =head1 CAVEATS
 
