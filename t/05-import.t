@@ -10,25 +10,25 @@ BEGIN {
 
 eval { Test::Trap->import(qw( trap1 trap2 )) };
 like( $@,
-      qr/^The Test::Trap module does not export more than one function at ${\__FILE__} line/,
+      qr/^\QThe Test::Trap module does not export more than one function at ${\__FILE__} line/,
       'Export of two functions',
     );
 
 eval { Test::Trap->import(qw( $trap1 $trap2 )) };
 like( $@,
-      qr/^The Test::Trap module does not export more than one scalar at ${\__FILE__} line/,
+      qr/^\QThe Test::Trap module does not export more than one scalar at ${\__FILE__} line/,
       'Export of two globs',
     );
 
 eval { Test::Trap->import(qw( @bad )) };
 like( $@,
-      qr/^"\@bad" is not exported by the Test::Trap module at ${\__FILE__} line/,
+      qr/^"\@bad"\Q is not exported by the Test::Trap module at ${\__FILE__} line/,
       'Export of an array',
     );
 
 eval { Test::Trap->import(qw( :no_such_layer )) };
 like( $@,
-      qr/^Unknown trapper layer "no_such_layer" at ${\__FILE__} line/,
+      qr/^\QUnknown trapper layer "no_such_layer" at ${\__FILE__} line/,
       'Export of an unknown layer',
     );
 
@@ -40,7 +40,7 @@ eval { Test::Trap->import(qw( test1 $T1 :stdout(perlio) )) };
 like( $@,
       $got{perlio} ?
       qr/\A\z/ :
-      qr/^No output layer implementation found for "perlio" at ${\__FILE__} line/,
+      qr/^\QNo output layer implementation found for "perlio" at ${\__FILE__} line/,
       'Export of PerlIO implementation :stdout(perlio)',
     );
 
@@ -48,13 +48,13 @@ eval { Test::Trap->import(qw( test2 $T2 :stdout(nosuch;tempfile) )) };
 like( $@,
       $got{tempfile} ?
       qr/\A\z/ :
-      qr/^\QNo output layer implementation found for ("nosuch", "tempfile") at ${\__FILE__} line\Q/,
+      qr/^\QNo output layer implementation found for ("nosuch", "tempfile") at ${\__FILE__} line/,
       'Export of PerlIO implementation :stdout(nosuch;tempfile)',
     );
 
 eval { Test::Trap->import(qw( test2 $T2 :stdout(nosuch1;nosuch2) )) };
 like( $@,
-      qr/^\QNo output layer implementation found for ("nosuch1", "nosuch2") at ${\__FILE__} line\Q/,
+      qr/^\QNo output layer implementation found for ("nosuch1", "nosuch2") at ${\__FILE__} line/,
       'Export of PerlIO implementation :stdout(nosuch1;nosuch2)',
     );
 

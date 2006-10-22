@@ -1,13 +1,45 @@
 package Test::Trap::Builder;
 
-use version; $VERSION = qv('0.0.5');
+use version; $VERSION = qv('0.0.6');
 
 use strict;
 use warnings;
 use Data::Dump qw(dump);
 use Carp qw(croak);
 our (@CARP_NOT, @ISA);
+use Exporter ();
+BEGIN {
+  *import = \&Exporter::import;
+  my @methods = qw( Next Exception Teardown Run );
+  our @EXPORT_OK = (@methods);
+  our %EXPORT_TAGS = ( methods => \@methods );
+}
 use constant GOT_CARP_NOT => $] >= 5.008;
+
+sub Next {
+  my $next = pop @{$_[0]{_layers}};
+  goto &$next;
+}
+
+sub Exception {
+  my $self = shift;
+  push @{$self->{_exception}}, @_;
+  local *@;
+  eval { $self->{__exception}->() };
+  # XXX: PANIC!  We returned!?!
+  CORE::exit(8); # XXX: Is there a more approprate exit value?
+}
+
+sub Teardown {
+  my $self = shift;
+  push @{$self->{_teardown}}, @_;
+}
+
+sub Run {
+  my $self = shift;
+  my $code = $self->{_code};
+  goto &$code;
+}
 
 sub _carpnot_for ($) {
   my $pkg = shift;
@@ -22,6 +54,31 @@ my $builder = bless
   };
 
 sub new { $builder }
+
+sub trap {
+  my $this = shift;
+  my ($module, $glob, $layers, $code) = @_;
+  my $current = bless
+    { wantarray   => (my $wantarray = wantarray),
+      _code       => $code,
+      _layers     => [@$layers],
+      _teardown   => [],
+      _exceptions => [],
+      __exception => sub { goto INTERNAL_EXCEPTION },
+    }, $module;
+  {
+    local *@;
+    eval { $current->Next };
+    eval { $_->() } for reverse @{$current->{_teardown}};
+    undef @{$current->{_teardown}};
+    ${*$glob} = $current;
+    my $return = $current->{return} || [];
+    return $wantarray ? @$return : $return->[0];
+  }
+INTERNAL_EXCEPTION:
+  local $Carp::CarpLevel = 1; # skip the real trap{} implementation
+  croak join"\n", @{$current->{_exception}};
+}
 
 sub _layer {
   my ($pkg, $name, $sub) = @_;
@@ -61,12 +118,14 @@ sub output_layer {
       croak "No output layer implementation found for " . dump(@backends);
     }
     return sub {
-      my $self = shift; my $next = pop;
-      my $is_open = defined fileno *$globref;
-      local *$globref;
+      my $self = shift;
       $self->{$name} = '';
-      my $scoper = $is_open && $implementation->($self, $name, $globref);
-      $self->$next(@_);
+      my $fileno;
+      # common stuff:
+      unless (tied *$globref or defined($fileno = fileno *$globref)) {
+	return $self->Next;
+      }
+      $self->$implementation($name, $fileno, $globref);
     };
   };
   _layer(scalar caller, $name, $code);
@@ -219,7 +278,7 @@ Test::Trap::Builder - Backend for building test traps
 
 =head1 VERSION
 
-Version 0.0.5
+Version 0.0.6
 
 =head1 SYNOPSIS
 
@@ -244,6 +303,48 @@ trap layers -- preferrably for use with your own test trap module.
 Note that layers are methods with mangled names (names are prefixed
 with C<layer:>), and so inherited like any other method.
 
+=head1 EXPORTS
+
+Test trap modules should not inherit from Test::Trap::Builder, but may
+import a few convenience methods for use in layer implementations.
+Layers should be implemented as methods, and while they need not call
+these convenience methods in turn, that likely makes for more readable
+code than any alternative.
+
+Do not use them as methods of Test::Trap::Builder -- they are intended
+to be methods of test trap objects, and won't work otherwise.  In
+fact, they should probably not be called outside of layer
+implementations.
+
+=head2 Run
+
+A terminating layer may call this method to run the user code.
+
+=head2 Next
+
+Every non-terminating layer should call this method (or an equivalent)
+to progress to the next layer.  Note that this method need not return,
+so any teardown actions should probably be registered with the
+Teardown method (see below).
+
+=head2 Teardown SUBS
+
+If your layer wants to clean up its setup, it may use this method to
+register any number of teardown actions, to be performed (in reverse
+registration order) once the user code has been executed.
+
+=head2 Exception STRINGS
+
+Layer implementations may run into exceptional situations, in which
+they want the entire trap to fail.  Unfortunately, another layer may
+be trapping ordinary exceptions, so you need some kind of magic in
+order to throw an untrappable exception.  This is one convenient way.
+
+Note: The Exception method won't work if called from outside of the
+regular control flow, like inside a DESTROY method or signal handler.
+If anything like this happens, CORE::exit will be called with an exit
+code of 8.
+
 =head1 METHODS
 
 =head2 new
@@ -251,12 +352,20 @@ with C<layer:>), and so inherited like any other method.
 Returns a singleton object.  Don't expect this module to work with
 a different object of this class.
 
+=head2 trap MODULE, GLOBREF, LAYERARRAYREF, CODE
+
+Implements a trap for I<MODULE>, using the scalar slot of I<GLOBREF>
+for the result object, applying the layers of I<LAYERARRAYREF>,
+trapping results of the user I<CODE>.
+
+In most cases, the test trap module may conveniently export a function
+calling this method.
+
 =head2 layer NAME, CODE
 
-Makes a layer I<NAME> implemented by I<CODE>.  Unless it is a
-terminating or otherwise special layer, the implementation should
-expect the result object as the first argument and the next layer as
-the final argument.
+Makes a layer I<NAME> implemented by I<CODE>.  It should expect to be
+invoked on the result object being built, with no arguments, and
+should call either the Next() or Run() method or equivalent.
 
 =head2 output_layer NAME, GLOBREF
 
@@ -266,11 +375,8 @@ I<GLOBREF>, using I<NAME> also as the attribute name.
 =head2 output_layer_backend NAME, CODE
 
 Registers, by I<NAME>, a I<CODE> implementing an output trap layer
-backend.  The I<CODE> will be called with the result object, the
-(layer) name, and the output handle's globref as parameters.  It may
-return an object, which then will be kept alive until after the call
-to lower levels (that is to say, DESTROY methods may be useful -- see
-the L<Test::Trap::Builder::TempFile> implementation).
+backend.  The I<CODE> will be called on the result object, with the
+layer name and the output handle's fileno and globref as parameters.
 
 =head2 default_output_layer_backends NAMES
 
@@ -335,7 +441,7 @@ implementation, an accessord is generated and registered.
 
 =head1 EXAMPLE
 
-A cmoplete example, implementing a I<timeout> layer (depending on
+A complete example, implementing a I<timeout> layer (depending on
 Time::HiRes::ualarm being present), a I<simpletee> layer (printing the
 trapped stdout/stderr to the original file handles after the trap has
 sprung), and a I<cmp_ok> test method template:
@@ -349,7 +455,7 @@ sprung), and a I<cmp_ok> test method template:
   # example (layer:timeout):
   use Time::HiRes qw/ualarm/;
   $B->layer( timeout => $_ ) for sub {
-    my $self = shift; my $next = pop;
+    my $self = shift;
     eval {
       local $SIG{ALRM} = sub {
 	$self->{timeout} = 1; # simple truth
@@ -357,7 +463,7 @@ sprung), and a I<cmp_ok> test method template:
 	die;
       };
       ualarm 1000, 1; # one second max, then die repeatedly!
-      $self->$next(@_);
+      $self->Next;
     };
     alarm 0;
     if ($self->{timeout}) {
@@ -371,14 +477,16 @@ sprung), and a I<cmp_ok> test method template:
 
   # example (layer:simpletee):
   $B->layer( simpletee => $_ ) for sub {
-    my $self = shift; my $next = pop;
+    my $self = shift;
     for (qw/ stdout stderr /) {
       next unless exists $self->{$_};
       die "Too late to tee $_";
     }
-    $self->$next(@_);
-    print STDOUT $self->{stdout} if exists $self->{stdout};
-    print STDERR $self->{stderr} if exists $self->{stderr};
+    $self->Teardown($_) for sub {
+      print STDOUT $self->{stdout} if exists $self->{stdout};
+      print STDERR $self->{stderr} if exists $self->{stderr};
+    };
+    $self->Next;
   };
   # no accessor for this layer
 
@@ -392,13 +500,9 @@ sprung), and a I<cmp_ok> test method template:
 The interface of this module is likely to remain somewhat in flux for
 a while yet.
 
-If File::Temp is not availible, the layers generated by output_layer()
-use in-memory files, and so will not (indeed cannot) trap output from
-forked-off processes -- including system() calls.
-
-Even if File::Temp is availible, the file descriptors aren't right, so
-you won't in general be able to trap output from exec'ed commands --
-including system() calls.
+The different implementations of output trap layers have their own
+caveats; see L<Test::Trap::Builder::Tempfile>,
+L<Test::Trap::Builder::PerlIO>, L<Test::Trap::Builder::SystemSafe>.
 
 Threads?  No idea.  It might even work correctly.
 

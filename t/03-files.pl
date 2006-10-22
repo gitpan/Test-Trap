@@ -3,22 +3,17 @@
 use Test::More;
 use IO::Handle;
 use File::Temp qw( tempfile );
+use Data::Dump qw(dump);
 use strict;
 use warnings;
 
-
+our $backend; # to be set in the requiring test script ...
 BEGIN {
-  our $backend; # to be set in the requiring test script ...
+  my $pkg = "Test::Trap::Builder::$backend";
   local $@;
-  no warnings 'redefine';
-  for my $other (grep { $_ ne $backend} qw/ TempFile PerlIO /) {
-    # Hack! to make the other backends unusable:
-    $INC{"Test/Trap/Builder/$other.pm"} = undef;
-  }
-  eval 'require Test::Trap';
-  no strict 'refs';
-  if (exists &{"Test::Trap::Builder::$backend\::import"}) {
-    plan tests => 1 + 5*11;
+  eval qq{ use $pkg };
+  if (exists &{"$pkg\::import"}) {
+    plan tests => 1 + 6*10 + 5*3; # 10 runtests; 3 inner_tests
   }
   else {
     plan skip_all => "$backend backend not supported; skipping";
@@ -26,22 +21,12 @@ BEGIN {
 }
 
 # This is an ugly bunch of tests, but for regression's sake, I'll
-# leave it as-is.  The problem is that warn() will print on the
-# previous STDERR if the current STDERR is closed.
+# leave it as-is.  The problem is that warn() (or rather, the default
+# __WARN__ handler) will print on the previous STDERR if the current
+# STDERR is closed.
 
 BEGIN {
-  use_ok( 'Test::Trap', '$T' );
-}
-
-my ($noise, $noisecounter);
-sub _noise() {
-  ++$noisecounter;
-  my $n = "$noisecounter\n";
-  warn $n;
-  print STDERR $n;
-  STDERR->flush;
-  die if STDERR->error;
-  $noise .= "$n$n";
+  use_ok( 'Test::Trap', '$T', lc ":flow:stdout($backend):stderr($backend):warn" );
 }
 
 STDERR: {
@@ -50,97 +35,113 @@ STDERR: {
   open STDERR, '>', $errname;
   STDERR->autoflush(1);
   print STDOUT '';
-  sub stderr () { local $/; local *ERR; open ERR, '<', $errname or die; <ERR> }
+  sub stderr () { local $/; no warnings 'io'; local *ERR; open ERR, '<', $errname or die; <ERR> }
 }
 
-_noise;
-my @r = trap { print STDERR "Test printing"; 2};
-is_deeply( $T->return, [2], 'Returns 2' );
-is( $T->stdout, '', 'Should trap nothing on STDOUT' );
-is( $T->stderr, 'Test printing', 'Should trap "Test printing" on STDERR' );
-is_deeply( $T->warn, [], 'No warnings' );
-is( stderr, $noise, 'No uncaptured STDERR' );
+sub diagdie {
+  my $msg = shift;
+  diag $msg;
+  die $msg;
+}
 
-_noise;
-@r = trap { close STDERR; my $t; print "Test printing '$t'"; 2};
-is_deeply( $T->return, [2], 'Returns 2' );
-is( $T->stdout, "Test printing ''", 'Trapped STDOUT' );
-is( $T->stderr, '', 'Should trap nothing on STDERR' );
-is_deeply( $T->warn, ["Use of uninitialized value in concatenation (.) or string at ${ \ __FILE__ } line ${ \ ( __LINE__ - 4 ) }.\n"], 'One warning' );
-is( stderr, $noise, 'No uncaptured STDERR' );
+my ($noise, $noisecounter) = ('', 0);
+sub runtests(&@) { # runs the trap and performs 6 tests
+  my($code, $return, $warn, $stdout, $stderr, $desc) = @_;
+  my $n = ++$noisecounter . $/;
+  warn $n or diagdie "Cannot warn()!";
+  STDERR->flush or diagdie "Cannot flush STDERR!";
+  print STDERR $n or diagdie "Cannot print on STDERR!";
+  STDERR->flush or diagdie "Cannot flush STDERR!";
+  $noise .= "$n$n";
+  my @r = eval { &trap($code) }; # bypass prototype
+  my $e = $@;
+SKIP: {
+    ok( !$e, "$desc: No internal exception" ) or do {
+      diag "Got internal exception: '$e'";
+      skip "$desc: Internal exception -- bad state", 5;
+    };
+    is_deeply( $T->return, $return, "$desc: Return" );
+    is_deeply( $T->warn, $warn, "$desc: Warnings" );
+    is( $T->stdout, $stdout, "$desc: STDOUT" );
+    is( $T->stderr, $stderr, "$desc: STDERR" );
+    is( stderr, $noise, ' -- no uncaptured STDERR -- ' );
+  }
+}
 
-_noise;
-@r = trap { 5 };
-is_deeply( $T->return, [5], 'Returns 5' );
-is( $T->stdout, '', 'Should trap nothing on STDOUT' );
-is( $T->stderr, '', 'Should trap nothing on STDERR' );
-is_deeply( $T->warn, [], 'No warnings' );
-is( stderr, $noise, 'No uncaptured STDERR' );
+my $inner_trap;
+sub inner_tests(@) { # performs 5 tests
+  my($return, $warn, $stdout, $stderr, $desc) = @_;
+SKIP: {
+    ok(eval{$inner_trap->isa('Test::Trap')}, "$desc: The object" )
+      or skip 'No inner trap object!', 4;
+    is_deeply( $inner_trap->return, $return, "$desc: Return" );
+    is_deeply( $inner_trap->warn, $warn, "$desc: Warnings" );
+    is( $inner_trap->stdout, $stdout, "$desc: STDOUT" );
+    is( $inner_trap->stderr, $stderr, "$desc: STDERR" );
+  }
+  undef $inner_trap; # catch those simple mistakes.
+}
 
-_noise;
-@r = trap { warn "Testing stderr trapping\n"; 5 };
-is_deeply( $T->return, [5], 'Returns 5' );
-is( $T->stdout, '', 'Should trap nothing on STDOUT' );
-is( $T->stderr, "Testing stderr trapping\n", 'Should trap a warning on STDERR' );
-is_deeply( $T->warn, ["Testing stderr trapping\n"], 'One warning' );
-is( stderr, $noise, 'No uncaptured STDERR' );
+runtests { 5 }
+  [5], [],
+  '', '',
+  'No output';
 
-_noise;
-@r = trap { close STDERR; warn "Testing stderr trapping\n"; 5 };
-is_deeply( $T->return, [5], 'Returns 5' );
-is( $T->stdout, '', 'Should trap nothing on STDOUT' );
-is( $T->stderr, '', 'Should trap nothing on STDERR' );
-is_deeply( $T->warn, ["Testing stderr trapping\n"], 'One warning' );
-is( stderr, $noise, 'No uncaptured STDERR' );
+runtests { my $t; print "Test printing '$t'"; 2}
+  [2], ["Use of uninitialized value in concatenation (.) or string at ${\__FILE__} line ${\( __LINE__-1)}.\n"],
+  "Test printing ''", "Use of uninitialized value in concatenation (.) or string at ${\__FILE__} line ${\( __LINE__-2)}.\n",
+  'Warning';
 
-_noise;
-@r = trap { trap { warn "Testing stderr trapping\n"; 5 } };
-is_deeply( $T->return, [5], 'Returns 5' );
-is( $T->stdout, '', 'Should trap nothing on STDOUT' );
-is( $T->stderr, '', 'Should trap nothing on STDERR' );
-is_deeply( $T->warn, [], 'No warnings' );
-is( stderr, $noise, 'No uncaptured STDERR' );
+runtests { close STDERR; my $t; print "Test printing '$t'"; 2}
+  [2], ["Use of uninitialized value in concatenation (.) or string at ${\__FILE__} line ${\(__LINE__-1)}.\n"],
+  "Test printing ''", '',
+  'Warning with closed STDERR';
 
-_noise;
-@r = trap { my $t; print "Test printing '$t'"; 2};
-is_deeply( $T->return, [2], 'Returns 2' );
-is( $T->stdout, "Test printing ''", 'Trapped STDOUT' );
-like( $T->stderr, qr/^Use of uninitialized value in concatenation \Q(.)\E or string at ${ \ __FILE__ }/, 'Should trap a warning on STDERR' );
-is_deeply( $T->warn, ["Use of uninitialized value in concatenation (.) or string at ${ \ __FILE__ } line ${ \ ( __LINE__ - 4 ) }.\n"], 'One warning' );
-is( stderr, $noise, 'No uncaptured STDERR' );
+runtests { warn "Testing stderr trapping\n"; 5 }
+  [5], ["Testing stderr trapping\n"],
+  '', "Testing stderr trapping\n",
+  'warn()';
 
-_noise;
-my $r = trap { close STDERR; my $t = trap { warn "Testing stderr trapping\n"; 2 }; $T };
-# outer
-is_deeply( $T->return, [$r], 'Returns a scalar' );
-is( $T->stdout, '', 'Should trap nothing on STDOUT' );
-is( $T->stderr, '', 'Should trap nothing on STDERR' );
-is_deeply( $T->warn, [], 'No warnings' );
-is( stderr, $noise, 'No uncaptured STDERR' );
+runtests { close STDERR; warn "Testing stderr trapping\n"; 5 }
+  [5], ["Testing stderr trapping\n"],
+  '', '',
+  'warn() with closed STDERR';
 
-_noise;
-# ... continuing on the previous block ...
-# inner
-is_deeply( $r->return, [2], 'Returns 2' );
-is( $r->stdout, '', 'Should trap nothing on STDOUT' );
-is( $r->stderr, '', 'Should trap nothing on STDERR' );
-is_deeply( $r->warn, ["Testing stderr trapping\n"], 'One warning' );
-is( stderr, $noise, 'No uncaptured STDERR' );
+runtests { my @r = trap { warn "Testing stderr trapping\n"; 5 }; $inner_trap = $T; @r}
+  [5], [],
+  '', '',
+  'warn() in inner trap';
+inner_tests
+  [5], ["Testing stderr trapping\n"],
+  '', "Testing stderr trapping\n",
+  ' -- the inner trap -- warn()';
 
-_noise;
-@r = trap { close STDOUT; print "Testing stdout trapping\n"; 6 };
-is_deeply( $T->return, [6], 'Returns 6' );
-is( $T->stdout, '', 'Should trap nothing on STDOUT' );
-like( $T->stderr, qr/^print\(\) on closed filehandle STDOUT at ${ \ __FILE__ }/, 'Should trap a warning on STDERR' );
-is_deeply( $T->warn, ["print() on closed filehandle STDOUT at ${ \ __FILE__ } line ${ \ ( __LINE__ - 4 ) }.\n"], 'One warning' );
-is( stderr, $noise, 'No uncaptured STDERR' );
+runtests { print STDERR "Test printing"; 2}
+  [2], [],
+  '', 'Test printing',
+  'print() on STDERR';
 
-_noise;
-@r = trap { close STDOUT; trap { print "Testing stdout trapping\n"; (5,6)}; };
-is_deeply( $T->return, [5,6], 'Returns 5, 6' );
-is( $T->stdout, '', 'Should trap nothing on STDOUT' );
-is( $r->stderr, '', 'Should trap nothing on STDERR' );
-is_deeply( $T->warn, [], 'No warnings' );
-is( stderr, $noise, 'No uncaptured STDERR' );
+runtests { close STDOUT; print "Testing stdout trapping\n"; 6 }
+  [6], ["print() on closed filehandle STDOUT at ${\__FILE__} line ${\(__LINE__-1)}.\n"],
+  '', "print() on closed filehandle STDOUT at ${\__FILE__} line ${\(__LINE__-2)}.\n",
+  'print() with closed STDOUT';
+
+runtests { close STDOUT; my @r = trap { print "Testing stdout trapping\n"; (5,6)}; $inner_trap = $T; @r }
+  [5, 6], [],
+  '', '',
+  'print() in inner trap with closed STDOUT';
+inner_tests
+  [5, 6], ["print() on closed filehandle STDOUT at ${\__FILE__} line ${\(__LINE__-5)}.\n"],
+  '', "print() on closed filehandle STDOUT at ${\__FILE__} line ${\(__LINE__-6)}.\n",
+  ' -- the inner trap -- print() with closed STDOUT';
+
+runtests { close STDERR; my @r = trap { warn "Testing stderr trapping\n"; 2 }; $inner_trap = $T; @r }
+  [2], [],
+  '', '',
+  'warn() in inner trap with closed STDERR';
+inner_tests
+  [2], ["Testing stderr trapping\n"],
+  '', '',
+  ' -- the inner trap -- warn() with closed STDERR';
 
 1;

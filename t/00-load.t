@@ -1,10 +1,11 @@
 #!perl -T
 # -*- mode: cperl ; compile-command: "cd .. ; ./Build ; prove -vb t/00-*.t" -*-
 
-use Test::More tests => 4;
+use Test::More tests => 5;
 
 BEGIN {
   use_ok( 'Test::Trap::Builder::TempFile' );
+  use_ok( 'Test::Trap::Builder::SystemSafe' );
 SKIP: {
     skip 'Lacking PerlIO', 1 unless eval "use PerlIO; 1";
     use_ok( 'Test::Trap::Builder::PerlIO' );

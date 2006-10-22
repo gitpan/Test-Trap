@@ -8,24 +8,28 @@ BEGIN {
   use_ok( 'Test::Trap' );
 }
 
+# Inner and outer traps with  different leaveby and context:
 my $x = trap {
   trap { exit };
   die unless $trap->leaveby eq 'exit';
   $trap;
 };
-# outer
+# outer trap
 is( $trap->leaveby, 'return', 'Expecting to return' );
 ok( !$trap->list, 'Not list context' );
 ok( $trap->scalar, 'Scalar context' );
 ok( !$trap->void, 'Not void context' );
 is_deeply( $trap->return, [$x], 'Returned the trapped() object' );
-# inner
+# inner trap
 is( $x->leaveby, 'exit', 'Inner: Exited' );
 ok( !$x->list, 'Inner: Not list context' );
 ok( !$x->scalar, 'Inner: Not scalar context' );
 ok( $x->void, 'Inner: Void context' );
 is_deeply( $x->return, undef, 'Inner: "Returned" ()' );
 
+# An inner trap localizes $trap, then successfully calls a twice-inner
+# trap.  After successful exit from the once-inner trap, $trap reverts
+# to its previous value:
 trap {
   trap { exit };
   is( $trap->leaveby, 'exit', 'Expecting to exit' );
@@ -44,10 +48,10 @@ trap {
     ok( eval { $trap->void }, 'Void context' );
     is_deeply( eval { $trap->return }, undef, 'No return' );
   }
-  is( $trap->leaveby, 'exit', 'Expecting to revert to having exited' );
-  ok( !$trap->list, 'Not list context' );
-  ok( !$trap->scalar, 'Not scalar context' );
-  ok( $trap->void, 'Void context' );
+  is( $trap->leaveby, 'exit', 'Revert: Expecting to exit' );
+  ok( !$trap->list, 'Revert: Not list context' );
+  ok( !$trap->scalar, 'Revert: Not scalar context' );
+  ok( $trap->void, 'Revert: Void context' );
   is_deeply( $trap->return, undef, 'No return' );
 };
 is( $trap->leaveby, 'return', 'Expecting to return' );
@@ -56,13 +60,13 @@ ok( !$trap->scalar, 'Not scalar context' );
 ok( $trap->void, 'Void context' );
 is_deeply( $trap->return, [], 'Void return' );
 
-# finally ...
+# exit compiled to CORE::GLOBAL::exit, which is undefined at runtime ...
 trap {
   local *CORE::GLOBAL::exit;
   trap { exit };
   is( $trap->leaveby, 'exit', 'Expecting to have exited' );
   exit; # should die!
-  fail("Past exit -- shouldn't run!");
-  END { pass("It's compiled, though") };
+  my $flag = 1;
+  END { ok( !$flag, 'Code past (dying) exit should compile, but not run' ) }
 };
-like( $trap->die, qr/^Undefined subroutine &CORE::GLOBAL::exit called at /, 'Poor compiler' );
+like( $trap->die, qr/^Undefined subroutine &CORE::GLOBAL::exit called at /, 'Dies: Undefined exit()' );

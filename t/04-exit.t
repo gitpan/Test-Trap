@@ -1,14 +1,19 @@
 #!perl -T
 # -*- mode: cperl ; compile-command: "cd .. ; ./Build ; prove -vb t/04-*.t" -*-
-use Test::More tests => 5;
+use Test::More tests => 6;
 use strict;
 use warnings;
 
+my ($done_exit, $ready_for_exit);
 BEGIN {
   *CORE::GLOBAL::exit = sub(;$) {
-    pass("The final test: The outer CORE::GLOBAL::exit is eventually called");
+    ok($ready_for_exit, "The outer CORE::GLOBAL::exit isn't called too early");
+    $done_exit++;
     CORE::exit(@_ ? shift : 0);
   };
+}
+END{
+  ok($done_exit, "The final test: The outer CORE::GLOBAL::exit is eventually called");
 }
 
 BEGIN {
@@ -25,6 +30,8 @@ trap {
   trap { exit };
   is( $trap->exit, 0, "Trapped the inner exit");
 };
-like( $trap->stderr, qr/^Subroutine (?:CORE::GLOBAL::)?exit redefined at ${\__FILE__} line/, 'Override warning' );
+like( $trap->stderr, qr/^Subroutine (?:CORE::GLOBAL::)?exit redefined at \Q${\__FILE__} line/, 'Override warning' );
+
+$ready_for_exit++;
 
 exit;

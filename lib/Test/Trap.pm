@@ -1,14 +1,13 @@
 package Test::Trap;
 
-use version; $VERSION = qv('0.0.19');
+use version; $VERSION = qv('0.0.20');
 
 use strict;
 use warnings;
 use Carp qw( croak );
 use IO::Handle;
-use Test::More ();
 use Data::Dump qw(dump);
-use Test::Trap::Builder;
+use Test::Trap::Builder qw( :methods );
 
 my $B = Test::Trap::Builder->new;
 
@@ -37,16 +36,7 @@ sub import {
   my $gref = \*{"$callpkg\::$scalar"};
   *$gref = \ do { my $x = bless {}, $module };
   *{"$callpkg\::$function"} = sub (&) {
-    my $current = bless
-      { wantarray => (my $wantarray = wantarray),
-	code      => shift,
-      }, $module;
-    my @l = @layer;
-    my $top = pop @l;
-    $current->$top(@l);
-    ${*$gref} = $current;
-    my $return = $current->{return} || [];
-    return $wantarray ? @$return : $return->[0];
+    $B->trap($module, $gref, \@layer, shift);
   }
 }
 
@@ -56,12 +46,10 @@ sub import {
 
 # The big one: trapping exits correctly:
 EXIT_LAYER: {
-  my %exit; # for a localizable lexical only: $exit{sub}
-
   # A versatile &CORE::GLOBAL::exit candidate:
   sub _global_exit (;$) {
     my $exit = @_ ? 0+shift : 0;
-    $exit{sub}->($exit) if $exit{sub};
+    ___exit($exit) if exists &___exit;
     CORE::exit($exit);
   };
 
@@ -71,24 +59,28 @@ EXIT_LAYER: {
 
   # And at last, the layer for exits:
   $B->layer(exit => $_) for sub {
-    my $self = shift; my $next = pop;
+    my $self = shift;
     # in case someone else is messing with exit:
     my $pid = $$;
     my $outer = \&CORE::GLOBAL::exit;
     undef $outer if $outer == \&_global_exit;
-    local $exit{sub} = sub {
-      if ($$ != $pid) {
-	return $outer->(@_) if $outer;
-	# XXX: This is fuzzy ... how to test this right?
-	CORE::exit(shift);
-      }
-      $self->{exit} = shift;
-      $self->{leaveby} = 'exit';
-      goto EXITING;
-    };
+    local *___exit;
+    {
+      no warnings 'redefine';
+      *___exit = sub {
+	if ($$ != $pid) {
+	  return $outer->(@_) if $outer;
+	  # XXX: This is fuzzy ... how to test this right?
+	  CORE::exit(shift);
+	}
+	$self->{exit} = shift;
+	$self->{leaveby} = 'exit';
+	goto EXITING;
+      };
+    }
     local *CORE::GLOBAL::exit;
     *CORE::GLOBAL::exit = \&_global_exit;
-    $self->$next(@_);
+    $self->Next;
   EXITING:
     return;
   };
@@ -100,21 +92,20 @@ EXIT_LAYER: {
 # layer, but is the layer responsible for calling the actual code!
 $B->layer(raw => $_) for sub {
   my $self = shift;
-  my $code = $self->{code};
   my $wantarray = $self->{wantarray};
   my @return;
-  unless (defined $wantarray) { $code->() }
-  elsif ($wantarray) { @return = $code->() }
-  else { @return = scalar $code->() }
+  unless (defined $wantarray) { $self->Run }
+  elsif ($wantarray) { @return = $self->Run }
+  else { @return = scalar $self->Run }
   $self->{return} = \@return;
   $self->{leaveby} = 'return';
 };
 
 # A simple layer for exceptions:
 $B->layer(die => $_) for sub {
-  my $self = shift; my $next = pop;
-  local $@;
-  return if eval { $self->$next(@_); 1 };
+  my $self = shift;
+  local *@;
+  return if eval { $self->Next; 1 };
   $self->{die} = $@;
   $self->{leaveby} = 'die';
 };
@@ -127,19 +118,26 @@ BEGIN {
   # Make availible some backends:
   use Test::Trap::Builder::TempFile;
   eval q{ use Test::Trap::Builder::PerlIO }; # optional
+  eval q{ use Test::Trap::Builder::SystemSafe }; # optional
 }
 
 # A simple layer for warnings:
 $B->layer(warn => $_) for sub {
-  my $self = shift; my $next = pop;
+  my $self = shift;
   my @warn;
-  local $SIG{__WARN__} = sub {
+  # Can't local($SIG{__WARN__}) because of a perl bug with local() on
+  # scalar values under the Windows fork() emulation -- work around:
+  my %sig = %SIG;
+  defined $sig{$_} or delete $sig{$_} for keys %sig;
+  local %SIG;
+  %SIG = %sig;
+  $SIG{__WARN__} = sub {
     my $w = shift;
     push @warn, $w;
     print STDERR $w if defined fileno STDERR;
   };
   $self->{warn} = \@warn;
-  $self->$next(@_);
+  $self->Next;
 };
 
 # Pseudo-layers:
@@ -181,13 +179,13 @@ $B->accessor( is_array => 1,
 #                             |  test name index
 #                name         |  |  implementation
 #                |            |  |  |
-$B->test_method( ok        => 1, 0, \&Test::More::ok );
-$B->test_method( nok       => 1, 0, sub { unshift @_, !shift; goto &Test::More::ok } );
-$B->test_method( is        => 1, 1, \&Test::More::is );
-$B->test_method( isnt      => 1, 1, \&Test::More::isnt );
-$B->test_method( like      => 1, 1, \&Test::More::like );
-$B->test_method( unlike    => 1, 1, \&Test::More::unlike );
-$B->test_method( is_deeply => 0, 1, \&Test::More::is_deeply );
+$B->test_method( ok        => 1, 0, sub { require Test::More; goto &Test::More::ok } );
+$B->test_method( nok       => 1, 0, sub { require Test::More; unshift @_, !shift; goto &Test::More::ok } );
+$B->test_method( is        => 1, 1, sub { require Test::More; goto &Test::More::is } );
+$B->test_method( isnt      => 1, 1, sub { require Test::More; goto &Test::More::isnt } );
+$B->test_method( like      => 1, 1, sub { require Test::More; goto &Test::More::like } );
+$B->test_method( unlike    => 1, 1, sub { require Test::More; goto &Test::More::unlike } );
+$B->test_method( is_deeply => 0, 1, sub { require Test::More; goto &Test::More::is_deeply } );
 
 # Extra convenience test method:
 sub quiet {
@@ -214,7 +212,7 @@ Test::Trap - Trap exit codes, exceptions, output, etc.
 
 =head1 VERSION
 
-Version 0.0.19
+Version 0.0.20
 
 =head1 SYNOPSIS
 

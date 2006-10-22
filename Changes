@@ -1,5 +1,31 @@
 Revision history for Test-Trap
 
+0.0.20	Sun Oct 22 09:21:55 CEST 2006
+	Test::Trap::Builder:
+	 - Backend implementations are now methods, almost layers, not functions.
+	    - Called with the (layer) name, the fileno, and the globref.
+	    - local(*$globref) is now left to the implementation.
+	 - Add method ->trap, implementing trap entry.
+	 - Add exportable methods Run, Next, Exception, Teardown:
+	    - Run runs the user's code;
+	    - Next continues to the next layer;
+	    - Exception raises an internal exception;
+	    - Teardown registers cleanup code.
+	Test::Trap::Builder::TempFile, Test::Trap::Builder::PerlIO:
+	 - Use ->Teardown instead of &DESTROY.
+	Add Test::Trap::Builder::SystemSafe.
+	 - Add three test scripts for this.
+	 - Work hard, and make those tests pass on 5.6.2!  :-)
+	t/03-files.pl: Simpler, less hacky, choice of backend.
+	t/07-subclass.t: Use the core alarm(), not the Time::HiRes one.
+	t/08-fork.t: Remember to wait() on all children.
+	t/99-coverage.t: What I cannot test without hacking.
+	t/*{-no-,-}taint.t:
+	 - Since Windows fork() does not work with taint mode.
+	t/*.t, t/*.pl:
+	 - Add comments and refactor into subroutines.
+	 - Replace pass()/fail() with simpler/clearer ok().
+
 0.0.19	Wed Sep 27 20:48:20 CEST 2006
 	No new functionality -- just bugfixes!
 	Address three portability issues:

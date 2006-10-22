@@ -1,27 +1,8 @@
 #!perl
 # -*- mode: cperl ; compile-command: "cd .. ; ./Build ; prove -vb t/08-*.t" -*-
-use Test::More;
+use Test::More tests => 15;
 use strict;
 use warnings;
-
-BEGIN {
-  my $tests = 15;
-  use Config;
-  if ($^O eq 'MSWin32') {
-    plan tests => $tests;
-    # Hack up a TODO & SKIP + exit -- what, no shortcut?
-  TODO: {
-      todo_skip 'These tests appear to crash perl on Windows', $tests;
-    };
-    exit;
-  }
-  elsif (!$Config{d_fork}) {
-    plan skip_all => 'Fork tests are irrelevant without fork()';
-  }
-  else {
-    plan tests => $tests;
-  }
-}
 
 my $flag;
 BEGIN {
@@ -37,7 +18,7 @@ BEGIN {
 }
 
 BEGIN {
-  use_ok( 'Test::Trap', ':flow:stdout(tempfile):stderr(tempfile):warn' );
+  use_ok( 'Test::Trap', ':raw:exit:stdout(tempfile):stderr(tempfile):warn' );
 }
 
 # check that the setup works -- the exit is still trapped:
@@ -61,7 +42,7 @@ trap {
   $Test->current_test( $Test->current_test + 1 );
   is( $trap->exit, 0, "Trapped the inner exit");
 };
-like( $trap->stderr, qr/^Subroutine (?:CORE::GLOBAL::)?exit redefined at ${\__FILE__} line/, 'Override warning' );
+like( $trap->stderr, qr/^Subroutine (?:CORE::GLOBAL::)?exit \Qredefined at ${\__FILE__} line/, 'Override warning' );
 
 trap {
   trap{
@@ -76,13 +57,14 @@ trap {
 is( $trap->leaveby, 'return', 'Should return just once, okay?' );
 
 # Output from forked-off processes?
+my $me;
 trap {
-  my $me = fork ? 'parent' : 'child';
+  $me = fork ? 'parent' : 'child';
   print "\u$me print\n";
   warn "\u$me warning\n";
-  exit $$ if $me eq 'parent';
-  CORE::exit(0);
+  wait, exit $$ if $me eq 'parent';
 };
+CORE::exit(0) if $me eq 'child';
 is( $trap->exit, $$, "Trapped the parent exit" );
 like( $trap->stdout, qr/^(Parent print\nChild print\n|Child print\nParent print\n)/, 'STDOUT from both processes!' );
 like( $trap->stderr, qr/^(Parent warning\nChild warning\n|Child warning\nParent warning\n)/, 'STDERR from both processes!' );
@@ -95,14 +77,13 @@ trap {
     my $me = fork ? 'parent' : 'child';
     print "\u$me print\n";
     warn "\u$me warning\n";
-    exit $$ if $me eq 'parent';
+    wait, exit $$ if $me eq 'parent';
     CORE::exit(0);
   };
   is( $trap->exit, $$, "Trapped the parent exit" );
   is( $trap->stdout, '', 'STDOUT from both processes is nil -- the handle is closed!' );
   like( $trap->stderr, qr/\A(?=.*^Parent warning$)(?=.*^Child warning$)/ms, 'STDERR from both processes!' );
 };
-
 
 $flag++; # the exit test will now pass -- in the forked-off processes it will fail!
 exit;

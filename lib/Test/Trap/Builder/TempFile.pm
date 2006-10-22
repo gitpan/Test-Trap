@@ -1,6 +1,6 @@
 package Test::Trap::Builder::TempFile;
 
-use version; $VERSION = qv('0.0.3');
+use version; $VERSION = qv('0.0.4');
 
 use strict;
 use warnings;
@@ -9,27 +9,27 @@ use File::Temp qw( tempfile );
 
 sub import {
   my $builder = Test::Trap::Builder->new;
-
   $builder->output_layer_backend( tempfile => $_ ) for sub {
-    my ($result, $name, $globref) = @_;
-    my $scoper = bless { result => $result, name => $name, pid => $$ };
-    @{$scoper}{qw/fh file/} = tempfile;
-    binmode $scoper->{fh}; # superfluous?
-    no warnings 'io';
-    open *$globref, '>>', $scoper->{file};
+    my $self = shift;
+    my ($name, $fileno, $globref) = @_;
+    my $pid = $$;
+    my ($fh, $file) = tempfile; # XXX: Test?
+    binmode $fh; # superfluos?
+    local *$globref;
+    {
+      no warnings 'io';
+      open *$globref, '>>', $file;
+    }
     binmode *$globref; # must write as we read.
     $globref->autoflush(1);
-    return $scoper;
+    $self->Teardown($_) for sub {
+      # if the file is opened by some other process, that one should deal with it:
+      return unless $pid == $$;
+      local $/;
+      $self->{$name} .= <$fh>;
+    };
+    $self->Next;
   };
-}
-
-sub DESTROY {
-  my $self = shift;
-  my ($result, $name, $fh, $file, $pid) = @{$self}{qw/ result name fh file pid/};
-  # if the file is opened by some other process, that one should deal with it:
-  return unless $pid == $$; # should work for pseudo-forks too (per perlfork)
-  local $/;
-  $result->{$name} .= <$fh>;
 }
 
 1; # End of Test::Trap::Builder::TempFile
@@ -42,7 +42,7 @@ Test::Trap::Builder::TempFile - Output layer backend using File::Temp
 
 =head1 VERSION
 
-Version 0.0.3
+Version 0.0.4
 
 =head1 DESCRIPTION
 

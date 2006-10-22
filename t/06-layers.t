@@ -24,10 +24,9 @@ BEGIN {
   # special -- a localized @ARGV, setting properties inargv and outargv on return:
   use_ok( 'Test::Trap', '$S', 'special', ':default', $_ ) for sub {
     my $self = shift;
-    my $next = pop;
     local *ARGV = \@argv;
     $self->{inargv} = [@argv];
-    $self->$next(@_);
+    $self->Next;
     $self->{outargv} = [@argv];
   };
 }

@@ -34,10 +34,9 @@ BEGIN {
   use base 'Test::Trap';
   $Builder->layer( argv => $_ ) for sub {
     my $self = shift;
-    my $next = pop;
     local *ARGV = \@argv;
     $self->{inargv} = [@argv];
-    $self->$next(@_);
+    $self->Next;
     $self->{outargv} = [@argv];
   };
   $Builder->accessor( is_array => 1, simple => [qw/inargv outargv/] );
@@ -67,7 +66,7 @@ BEGIN {
 
   # example (layer:timeout):
   $B->layer( timeout => $_ ) for sub {
-    my $self = shift; my $next = pop;
+    my $self = shift;
     eval {
       local $SIG{ALRM} = sub {
 	$self->{timeout} = 1; # simple truth
@@ -75,9 +74,9 @@ BEGIN {
 	die;
       };
       Time::HiRes::ualarm(1000, 1); # one second max, then die repeatedly!
-      $self->$next(@_);
+      $self->Next;
     };
-    Time::HiRes::alarm(0);
+    alarm 0;
     if ($self->{timeout}) {
       $self->{leaveby} = 'timeout';
       delete $self->{$_} for qw/ die exit return /;
@@ -89,14 +88,16 @@ BEGIN {
 
   # example (layer:simpletee):
   $B->layer( simpletee => $_ ) for sub {
-    my $self = shift; my $next = pop;
+    my $self = shift;
     for (qw/ stdout stderr /) {
       next unless exists $self->{$_};
       die "Too late to tee $_";
     }
-    $self->$next(@_);
-    print STDOUT $self->{stdout} if exists $self->{stdout};
-    print STDERR $self->{stderr} if exists $self->{stderr};
+    $self->Teardown($_) for sub {
+      print STDOUT $self->{stdout} if exists $self->{stdout};
+      print STDERR $self->{stderr} if exists $self->{stderr};
+    };
+    $self->Next;
   };
   # no accessor for this layer
 
@@ -147,7 +148,7 @@ BEGIN {
     $Builder->multi_layer( trouble => qw( warn no_such_layer ) );
   };
   like( $D->die,
-	qr/^Unknown trapper layer "no_such_layer" at ${\__FILE__} line/,
+	qr/^\QUnknown trapper layer "no_such_layer" at ${\__FILE__} line/,
 	'Bad definition',
       );
 }
@@ -160,7 +161,7 @@ BEGIN {
     $Builder->multi_layer( default => qw( flow stdout stderr warn ) );
   };
   like( $D->die,
-	qr/^No default backend and none specified for :stdout at ${\__FILE__} line/,
+	qr/^\QNo default backend and none specified for :stdout at ${\__FILE__} line/,
 	'Bad definition',
       );
 }
@@ -213,7 +214,7 @@ is( stderr, "Hi!\n", '.' );
 
 # Third, timeout, test for the example:
 SKIP: {
-  skip 'Needs Time::HiRes::ualarm', 6 unless $GOT_UALARM;
+  skip 'Need Time::HiRes::ualarm()', 6 unless $GOT_UALARM;
   # Protect against tainted PATH &c ...
   local $ENV{PATH} = '';
   local $ENV{BASH_ENV} = '';
