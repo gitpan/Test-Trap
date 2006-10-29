@@ -1,15 +1,36 @@
-# http://module-build.sourceforge.net/META-spec.html
-#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
-name:         Test-Trap
-version:      v0.0.20
-version_from: lib/Test/Trap.pm
-installdirs:  site
+---
+name: Test-Trap
+version: v0.0.21
+author:
+  - 'Eirik Berg Hanssen <Eirik-Berg.Hanssen@allverden.no>'
+abstract: 'Trap exit codes, exceptions, output, etc.'
+license: perl
+resources:
+  license: http://dev.perl.org/licenses/
 requires:
-    Data::Dump:                    0
-    File::Temp:                    0
-    Test::More:                    0
-    Test::Tester:                  0
-    version:                       0
-
-distribution_type: module
-generated_by: ExtUtils::MakeMaker version 6.30
+  Data::Dump: 0
+  File::Temp: 0
+  Test::More: 0
+  Test::Tester: 0
+  perl: 5.6.0
+  version: 0
+provides:
+  Test::Trap:
+    file: lib/Test/Trap.pm
+    version: v0.0.21
+  Test::Trap::Builder:
+    file: lib/Test/Trap/Builder.pm
+    version: v0.0.7
+  Test::Trap::Builder::PerlIO:
+    file: lib/Test/Trap/Builder/PerlIO.pm
+    version: v0.0.4
+  Test::Trap::Builder::SystemSafe:
+    file: lib/Test/Trap/Builder/SystemSafe.pm
+    version: v0.0.5
+  Test::Trap::Builder::TempFile:
+    file: lib/Test/Trap/Builder/TempFile.pm
+    version: v0.0.4
+generated_by: Module::Build version 0.280501
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.2.html
+  version: 1.2

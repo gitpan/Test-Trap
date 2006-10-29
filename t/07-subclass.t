@@ -46,7 +46,7 @@ BEGIN {
 			},
 		      },
 		    );
-  $Builder->test_method( can => 1, 1, $_ ) for sub {
+  $Builder->test( can => 'indexed, predicate, name', $_ ) for sub {
     my ($got, $methods) = @_;
     @_ = ($got, @$methods);
     goto &Test::More::can_ok;
@@ -106,7 +106,7 @@ BEGIN {
   $B->multi_layer(flow => @flow);
   $B->multi_layer(default => qw/ flow stdout stderr warn simpletee /);
 
-  $B->test_method( cmp_ok => 1, 2, \&Test::More::cmp_ok );
+  $B->test( cmp_ok => 'indexed, predicate, name', \&Test::More::cmp_ok );
 
   # Hack! Make perl think we have successfully required this package,
   # so that we can "use" it, even though it can't be found:
@@ -126,18 +126,12 @@ BEGIN {
 		  },
 		},
 	      );
-  $B->test_method( pass => 0, 0, sub { shift; goto &Test::More::pass } );
+  $B->test( pass => 'name', \&Test::More::pass );
 }
 
 BEGIN {
-  use_ok( 'Test::Trap', '$D', 'default' );
-}
-
-BEGIN {
+  use_ok( 'Test::Trap',   '$D', 'default' );
   use_ok( 'TT::subclass', '$S', 'subclass', ':argv' );
-}
-
-BEGIN {
   use_ok( 'TT::examples', '$E', 'example' );
 }
 

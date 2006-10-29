@@ -1,7 +1,7 @@
 #!perl -T
 # -*- mode: cperl ; compile-command: "cd .. ; ./Build ; prove -vb t/10-*.t" -*-
 use Test::Tester;
-use Test::More tests => 2 + 3 + 7*14;
+use Test::More tests => 2 + 3 + 7*15;
 use Getopt::Long;
 use strict;
 use warnings;
@@ -70,6 +70,23 @@ is( $t[0]{ok}, 1, '->exit_nok');
 is( $t[0]{actual_ok}, 1 );
 is( $t[0]{name}, 'Exit with false value' );
 is( $t[0]{diag}, '' );
+is( $t[0]{depth}, 1 );
+
+# Box with print and exit 5
+($prem, @t) = run_tests
+  ( sub {
+      my $t = trap { print "Hello world"; exit 5 };
+      $T->exit_nok('Exit with false value');
+    },
+  );
+is( $prem, '' );
+is( $#t, 0 );
+is( $t[0]{ok}, 0, '->exit_nok');
+is( $t[0]{actual_ok}, 0 );
+is( $t[0]{name}, 'Exit with false value' );
+is( $t[0]{diag}, <<'EOE' );
+    Expecting false value in exit(), but got 5 instead
+EOE
 is( $t[0]{depth}, 1 );
 
 # Box with multiple return values

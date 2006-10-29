@@ -1,6 +1,6 @@
 package Test::Trap::Builder;
 
-use version; $VERSION = qv('0.0.6');
+use version; $VERSION = qv('0.0.7');
 
 use strict;
 use warnings;
@@ -10,11 +10,13 @@ our (@CARP_NOT, @ISA);
 use Exporter ();
 BEGIN {
   *import = \&Exporter::import;
-  my @methods = qw( Next Exception Teardown Run );
+  my @methods = qw( Next Exception Teardown Run TestAccessor );
   our @EXPORT_OK = (@methods);
   our %EXPORT_TAGS = ( methods => \@methods );
 }
 use constant GOT_CARP_NOT => $] >= 5.008;
+
+# Methods on the result object:
 
 sub Next {
   my $next = pop @{$_[0]{_layers}};
@@ -40,6 +42,13 @@ sub Run {
   my $code = $self->{_code};
   goto &$code;
 }
+
+sub TestAccessor {
+  my $self = shift;
+  return $self->{_test_accessor};
+}
+
+# Utiliy functions and methods on the builder class/object:
 
 sub _carpnot_for ($) {
   my $pkg = shift;
@@ -152,7 +161,7 @@ sub layer_implementation {
   local( GOT_CARP_NOT ? @CARP_NOT : @ISA ) = _carpnot_for caller;
   my $trapper = shift;
   my @r;
-  for (@_) {
+  for (@_) { # XXX: Consider (Scalar::Util::reftype($_) eq 'CODE' or (Scalar::Util::blessed($_) and overload::Method($_, '&{}')))
     if (UNIVERSAL::isa($_, 'CODE')) {
       push @r, $_;
       next;
@@ -172,48 +181,78 @@ sub layer_implementation {
   return @r;
 }
 
-sub _accessor_test {
-  my ($mpkg, $mname, $adef, $tdef) = @_;
-  my ($is_indexing, $test_name_index, $tcode) = @$tdef;
-  my $acode = $adef->{code};
-  my $use_index = $is_indexing && $adef->{is_array};
-  my $basic = sub {
-    my $self = shift;
-    my $got = $self->$acode( $use_index ? shift : () );
-    local $Test::Builder::Level = $Test::Builder::Level+1;
-    $tcode->( $got, @_ );
-  };
-  no strict 'refs';
-  unless ($adef->{is_leaveby}) {
-    return *{"$mpkg\::$mname"} = $basic;
-  }
-  *{"$mpkg\::$mname"} = sub {
-    my $got = $_[0]->leaveby;
-    goto &$basic if $got eq $adef->{name};
-    my $self = shift;
-    my $Test = Test::More->builder;
-    shift if $use_index;
-    my $ok = $Test->ok('', $_[$test_name_index]);
-    $Test->diag(sprintf<<DIAGNOSTIC, $adef->{name}, $got, dump($self->$got));
+BEGIN {
+  # state for the closures in %argspec -- obviously not reentrant:
+  my ($object, @param);
+  my ($accessor, $indexed, $index);
+  my %argspec =
+    ( object    => sub { $object },
+      indexed   => sub { $object->$accessor( $indexed ? $index = shift(@param) : () ) },
+      all       => sub { $object->$accessor },
+      predicate => sub { shift @param },
+      name      => sub { shift @param },
+    );
+
+  sub _accessor_test {
+    my ($mpkg, $mname, $adef, $tdef) = @_;
+    my ($targs, $tcode) = @$tdef;
+    my $acode = $adef->{code};
+    my $use_index = $adef->{is_array} && grep {$_ eq 'indexed'} @$targs;
+    my $test_name_index = 0;
+    for (@$targs) {
+      last if /name/;
+      $test_name_index++ if /predicate/ or (/indexed/ and $use_index);
+    }
+    my $basic = sub {
+      # set up the state:
+      ($object, @param) = @_;
+      ($accessor, $indexed, $index) = ($acode, $use_index, '');
+      my @args = map {$argspec{$_}->()} @$targs;
+      my $self = shift;
+      local $self->{_test_accessor} = "$adef->{name}($index)";
+      local $Test::Builder::Level = $Test::Builder::Level+1;
+      $tcode->(@args);
+    };
+    my $wrong_leaveby = sub {
+      my $self = shift;
+      my $Test = Test::More->builder;
+      my $ok = $Test->ok('', $_[$test_name_index]);
+      my $got = $self->leaveby;
+      $Test->diag(sprintf<<DIAGNOSTIC, $adef->{name}, $got, dump($self->$got));
     Expecting to %s(), but instead %s()ed with %s
 DIAGNOSTIC
-    $ok;
-  };
-}
+      return $ok;
+    };
+    no strict 'refs';
+    if ($adef->{is_leaveby}) {
+      return *{"$mpkg\::$mname"} = sub {
+	goto &{ ($_[0]->leaveby eq $adef->{name}) ? $basic : $wrong_leaveby };
+      };
+    }
+    else {
+      return *{"$mpkg\::$mname"} = $basic;
+    }
+  }
 
-sub test_method {
-  my $this = shift;
-  my ($tname, $is_indexing, $test_name_index, $code) = @_;
-  my $tpkg = caller;
-  my $tdef = $builder->{test}{$tpkg}{$tname} = [ $is_indexing, $test_name_index, $code ];
-  # make the test methods:
-  for my $apkg (keys %{$builder->{accessor}}) {
-    my $mpkg = $apkg->isa($tpkg) ? $apkg
-             : $tpkg->isa($apkg) ? $tpkg
-	     : next;
-    for my $aname (keys %{$builder->{accessor}{$apkg}}) {
-      my $adef = $builder->{accessor}{$apkg}{$aname};
-      _accessor_test($mpkg, "$aname\_$tname", $adef, $tdef);
+  sub test {
+    my $this = shift;
+    my ($tname, $targs, $code) = @_;
+    my $tpkg = caller;
+    my @targs = $targs =~ /(\w+)/g;
+    for (@targs) {
+      next if exists $argspec{$_};
+      croak "Unrecognized identifier $_ in argspec";
+    }
+    my $tdef = $builder->{test}{$tpkg}{$tname} = [ \@targs, $code ];
+    # make the test methods:
+    for my $apkg (keys %{$builder->{accessor}}) {
+      my $mpkg = $apkg->isa($tpkg) ? $apkg
+               : $tpkg->isa($apkg) ? $tpkg
+	       : next;
+      for my $aname (keys %{$builder->{accessor}{$apkg}}) {
+	my $adef = $builder->{accessor}{$apkg}{$aname};
+	_accessor_test($mpkg, "$aname\_$tname", $adef, $tdef);
+      }
     }
   }
 }
@@ -224,7 +263,7 @@ sub _accessor {
   *{"$apkg\::$aname"} = $code;
   my $adef = $builder->{accessor}{$apkg}{$aname} = { %$par, code => $code, name => $aname };
   # make the test methods:
-  my $tdef = [ 0, 0, sub { shift; goto &Test::More::pass } ];
+  my $tdef = [ ['name'], \&Test::More::pass ];
   _accessor_test($apkg, "did_$aname", $adef, $tdef);
   for my $tpkg (keys %{$builder->{test}}) {
     my $mpkg = $apkg->isa($tpkg) ? $apkg
@@ -248,8 +287,7 @@ sub _array_accessor {
     my $self = shift;
     return   $self->{$name}      unless @_;
     return @{$self->{$name}}[@_] if wantarray;
-    my $f = shift;
-    return   $self->{$name}[$f];
+    return   $self->{$name}[shift];
   };
 }
 
@@ -278,7 +316,7 @@ Test::Trap::Builder - Backend for building test traps
 
 =head1 VERSION
 
-Version 0.0.6
+Version 0.0.7
 
 =head1 SYNOPSIS
 
@@ -345,6 +383,11 @@ regular control flow, like inside a DESTROY method or signal handler.
 If anything like this happens, CORE::exit will be called with an exit
 code of 8.
 
+=head2 TestAccessor
+
+Returns the name with index (if any) of the accessor for which the
+current test implementation is called.
+
 =head1 METHODS
 
 =head2 new
@@ -397,12 +440,43 @@ Returns the subroutines that implement the requested I<LAYERS>.  If
 any of the I<LAYERS> is neither an anonymous method nor the name of a
 layer known to the I<PACKAGE>, an exception is raised.
 
-=head2 test_method NAME, IS_INDEXING, TEST_NAME_INDEX, CODE
+=head2 test NAME, ARGSPEC, CODE
 
-Registers a test method template I<NAME> for the calling trapper
-package.  Makes test methods of the form I<ACCESSOR>_I<NAME> in the
+Registers a test method template for the calling trapper package.
+Test methods of the form I<ACCESSOR>_I<NAME> will be generated in the
 proper (i.e. inheriting) package for every registered I<ACCESSOR> of a
 package that either inherits or is inherited by the calling package.
+To perform the test, the implicit leaveby condition will be tested,
+before the I<CODE> eventually is called with arguments according to
+the words found in the I<ARGSPEC> string:
+
+=over
+
+=item object
+
+The result object.
+
+=item all
+
+The I<ACCESSOR>'s return value when called without argements.
+
+=item indexed
+
+An array I<ACCESSOR>'s return value when called with proper index
+(taken from the test method's parameters); a scalar I<ACCESSOR>'s
+return value when called without arguments.
+
+=item predicate
+
+What the I<ACCESSOR>'s return value should be tested against (taken
+from the test method's parameters).  (There may be more than one
+predicate.)
+
+=item name
+
+The test name.
+
+=back
 
 =head2 accessor NAMED_PARAMS
 

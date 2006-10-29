@@ -1,5 +1,16 @@
 Revision history for Test-Trap
 
+0.0.21	Sun Oct 29 15:53:07 CET 2006
+	Test::Trap::Builder::SystemSafe:
+	 - Fix typo in the NAME section of the POD.
+	Test::Trap::Builder:
+	 - Export a method ->TestAccessor, giving the tested accessor's name.
+	 - Remove (ugly) register method ->test_method.
+	 - Add (cleaner) register method ->test.
+	Test::Trap:
+	 - Better diagnostics to failing *_ok/*_nok test.
+	 - AUTOLOAD Test::More when required.
+
 0.0.20	Sun Oct 22 09:21:55 CEST 2006
 	Test::Trap::Builder:
 	 - Backend implementations are now methods, almost layers, not functions.

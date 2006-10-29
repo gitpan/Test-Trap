@@ -1,6 +1,6 @@
 package Test::Trap;
 
-use version; $VERSION = qv('0.0.20');
+use version; $VERSION = qv('0.0.21');
 
 use strict;
 use warnings;
@@ -8,6 +8,16 @@ use Carp qw( croak );
 use IO::Handle;
 use Data::Dump qw(dump);
 use Test::Trap::Builder qw( :methods );
+BEGIN {
+  package# don't index!
+    Test::More;
+  AUTOLOAD {
+    require Test::More;
+    no strict 'refs';
+    our($AUTOLOAD);
+    goto &$AUTOLOAD;
+  };
+}
 
 my $B = Test::Trap::Builder->new;
 
@@ -173,19 +183,38 @@ $B->accessor( is_array => 1,
 	      simple => [ qw/ return / ],
 	    );
 
-##################################################
-# Standard tests
-#                             use index for arrays
-#                             |  test name index
-#                name         |  |  implementation
-#                |            |  |  |
-$B->test_method( ok        => 1, 0, sub { require Test::More; goto &Test::More::ok } );
-$B->test_method( nok       => 1, 0, sub { require Test::More; unshift @_, !shift; goto &Test::More::ok } );
-$B->test_method( is        => 1, 1, sub { require Test::More; goto &Test::More::is } );
-$B->test_method( isnt      => 1, 1, sub { require Test::More; goto &Test::More::isnt } );
-$B->test_method( like      => 1, 1, sub { require Test::More; goto &Test::More::like } );
-$B->test_method( unlike    => 1, 1, sub { require Test::More; goto &Test::More::unlike } );
-$B->test_method( is_deeply => 0, 1, sub { require Test::More; goto &Test::More::is_deeply } );
+####################
+#  Standard tests  #
+####################
+
+for my $simple (qw/ is isnt like unlike /) {
+  no strict 'refs';
+  $B->test( $simple => 'indexed, predicate, name', \&{"Test::More::$simple"} );
+}
+
+$B->test( is_deeply => 'all, predicate, name', \&Test::More::is_deeply );
+
+$B->test( ok => 'object, indexed, name', $_ ) for sub {
+  my $self = shift;
+  my ($got, $name) = @_;
+  my $Test = Test::More->builder;
+  my $ok = $Test->ok( $got, $name );
+  $Test->diag(sprintf<<OK, $self->TestAccessor, dump($got)) unless $ok;
+    Expecting true value in %s, but got %s instead
+OK
+  return $ok;
+};
+
+$B->test( nok => 'object, indexed, name', $_ ) for sub {
+  my $self = shift;
+  my ($got, $name) = @_;
+  my $Test = Test::More->builder;
+  my $ok = $Test->ok( !$got, $name );
+  $Test->diag(sprintf<<NOK, $self->TestAccessor, dump($got)) unless $ok;
+    Expecting false value in %s, but got %s instead
+NOK
+  return $ok;
+};
 
 # Extra convenience test method:
 sub quiet {
@@ -212,7 +241,7 @@ Test::Trap - Trap exit codes, exceptions, output, etc.
 
 =head1 VERSION
 
-Version 0.0.20
+Version 0.0.21
 
 =head1 SYNOPSIS
 
