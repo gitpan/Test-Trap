@@ -1,5 +1,31 @@
 Revision history for Test-Trap
 
+0.0.22	Sun May 20 23:21:36 CEST 2007
+	No big changes this time.
+	Cleanup:
+	 - remove unused Getopt::Long from tests;
+	 - rearrange some tests for better readability;
+	 - rewrite some systemsafe pod for better readability.
+	Tests:
+	 - delete $ENV{ENV} (tainted);
+	 - for coverage, first don't use Test::More in t/99-coverage.t;
+	 - for coverage, test the internals of exiting breaking badly;
+	 - simpler (and better covering) subclass tests.
+	Test::Trap:
+	 - don't AUTOLOAD on behalf of Test::More after all (unclean);
+	 - last TEST_TRAP_EXITING rather than goto EXITING (avoid collisions).
+	Test::Trap::Builder:
+	 - localize the builder's internals of the trap object, so
+	   that they are gone as soon as the trap has sprung, leaving
+	   pay data only;
+	 - last TEST_TRAP_BUILDER_INTERNAL_EXCEPTION rather than
+	   goto INTERNAL_EXCEPTION (avoid collision);
+	 - note (in the pod) a caveat for diamond inheritance wrt
+	   autogeneration of test methods.
+	Build:
+	 - don't include author's tests (pod*, kwalitee, etc) in the tarball;
+	 - note _all_ mandatory module dependencies (overkill?).
+
 0.0.21	Sun Oct 29 15:53:07 CET 2006
 	Test::Trap::Builder::SystemSafe:
 	 - Fix typo in the NAME section of the POD.

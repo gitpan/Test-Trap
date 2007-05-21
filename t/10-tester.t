@@ -2,7 +2,6 @@
 # -*- mode: cperl ; compile-command: "cd .. ; ./Build ; prove -vb t/10-*.t" -*-
 use Test::Tester;
 use Test::More tests => 2 + 3 + 7*15;
-use Getopt::Long;
 use strict;
 use warnings;
 

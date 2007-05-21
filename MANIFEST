@@ -30,7 +30,3 @@ t/11-systemsafe-basic-taint.t
 t/11-systemsafe-basic.pl
 t/12-systemsafe-errors.t
 t/99-coverage.t
-t/boilerplate.t
-t/kwalitee.t
-t/pod-coverage.t
-t/pod.t

@@ -1,6 +1,6 @@
 package Test::Trap;
 
-use version; $VERSION = qv('0.0.21');
+use version; $VERSION = qv('0.0.22');
 
 use strict;
 use warnings;
@@ -8,16 +8,6 @@ use Carp qw( croak );
 use IO::Handle;
 use Data::Dump qw(dump);
 use Test::Trap::Builder qw( :methods );
-BEGIN {
-  package# don't index!
-    Test::More;
-  AUTOLOAD {
-    require Test::More;
-    no strict 'refs';
-    our($AUTOLOAD);
-    goto &$AUTOLOAD;
-  };
-}
 
 my $B = Test::Trap::Builder->new;
 
@@ -75,23 +65,25 @@ EXIT_LAYER: {
     my $outer = \&CORE::GLOBAL::exit;
     undef $outer if $outer == \&_global_exit;
     local *___exit;
-    {
-      no warnings 'redefine';
-      *___exit = sub {
-	if ($$ != $pid) {
-	  return $outer->(@_) if $outer;
-	  # XXX: This is fuzzy ... how to test this right?
-	  CORE::exit(shift);
-	}
-	$self->{exit} = shift;
-	$self->{leaveby} = 'exit';
-	goto EXITING;
-      };
+  TEST_TRAP_EXITING: {
+      {
+	no warnings 'redefine';
+	*___exit = sub {
+	  if ($$ != $pid) {
+	    return $outer->(@_) if $outer;
+	    # XXX: This is fuzzy ... how to test this right?
+	    CORE::exit(shift);
+	  }
+	  $self->{exit} = shift;
+	  $self->{leaveby} = 'exit';
+	  no warnings 'exiting';
+	  last TEST_TRAP_EXITING;
+	};
+      }
+      local *CORE::GLOBAL::exit;
+      *CORE::GLOBAL::exit = \&_global_exit;
+      $self->Next;
     }
-    local *CORE::GLOBAL::exit;
-    *CORE::GLOBAL::exit = \&_global_exit;
-    $self->Next;
-  EXITING:
     return;
   };
 }
@@ -187,16 +179,25 @@ $B->accessor( is_array => 1,
 #  Standard tests  #
 ####################
 
-for my $simple (qw/ is isnt like unlike /) {
-  no strict 'refs';
-  $B->test( $simple => 'indexed, predicate, name', \&{"Test::More::$simple"} );
+sub _test_more($) {
+  my $sym = shift;
+  sub {
+    require Test::More;
+    goto &{"Test::More::$sym"};
+  };
 }
 
-$B->test( is_deeply => 'all, predicate, name', \&Test::More::is_deeply );
+for my $simple (qw/ is isnt like unlike /) {
+  no strict 'refs';
+  $B->test( $simple => 'indexed, predicate, name', _test_more $simple );
+}
+
+$B->test( is_deeply => 'all, predicate, name', _test_more 'is_deeply' );
 
 $B->test( ok => 'object, indexed, name', $_ ) for sub {
   my $self = shift;
   my ($got, $name) = @_;
+  require Test::More;
   my $Test = Test::More->builder;
   my $ok = $Test->ok( $got, $name );
   $Test->diag(sprintf<<OK, $self->TestAccessor, dump($got)) unless $ok;
@@ -208,6 +209,7 @@ OK
 $B->test( nok => 'object, indexed, name', $_ ) for sub {
   my $self = shift;
   my ($got, $name) = @_;
+  require Test::More;
   my $Test = Test::More->builder;
   my $ok = $Test->ok( !$got, $name );
   $Test->diag(sprintf<<NOK, $self->TestAccessor, dump($got)) unless $ok;
@@ -225,6 +227,7 @@ sub quiet {
     my $buf = $self->$m . ''; # coerce to string
     push @fail, "Expecting no \U$m\E, but got " . dump($buf) if $buf ne '';
   }
+  require Test::More;
   my $Test = Test::More->builder;
   my $ok = $Test->ok(!@fail, $name);
   $Test->diag(join"\n", @fail) unless $ok;
@@ -241,7 +244,7 @@ Test::Trap - Trap exit codes, exceptions, output, etc.
 
 =head1 VERSION
 
-Version 0.0.21
+Version 0.0.22
 
 =head1 SYNOPSIS
 
@@ -494,7 +497,7 @@ Eirik Berg Hanssen, C<< <ebhanssen@allverden.no> >>
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2006 Eirik Berg Hanssen, All Rights Reserved.
+Copyright 2006-2007 Eirik Berg Hanssen, All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

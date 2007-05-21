@@ -39,6 +39,7 @@ BEGIN {
 
 # Protect against tainted PATH &c ...
 $ENV{PATH} = '';
+$ENV{ENV} = '';
 $ENV{BASH_ENV} = '';
 
 my ($PERL) = $^X =~ /^([\w.\/:\\-]+)$/;

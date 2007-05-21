@@ -8,11 +8,21 @@ WriteMakefile
           'EXE_FILES' => [],
           'VERSION_FROM' => 'lib/Test/Trap.pm',
           'PREREQ_PM' => {
-                           'Test::More' => 0,
-                           'version' => 0,
-                           'File::Temp' => 0,
+                           'IO::Handle' => 0,
+                           'Config' => 0,
+                           'Test::Builder' => 0,
                            'Data::Dump' => 0,
-                           'Test::Tester' => 0
+                           'lib' => 0,
+                           'warnings' => 0,
+                           'base' => 0,
+                           'version' => 0,
+                           'Test::Tester' => 0,
+                           'constant' => 0,
+                           'Exporter' => 0,
+                           'Carp' => 0,
+                           'strict' => 0,
+                           'Test::More' => 0,
+                           'File::Temp' => 0
                          }
         )
 ;

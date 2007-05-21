@@ -1,6 +1,6 @@
 package Test::Trap::Builder;
 
-use version; $VERSION = qv('0.0.7');
+use version; $VERSION = qv('0.0.8');
 
 use strict;
 use warnings;
@@ -69,14 +69,16 @@ sub trap {
   my ($module, $glob, $layers, $code) = @_;
   my $current = bless
     { wantarray   => (my $wantarray = wantarray),
-      _code       => $code,
-      _layers     => [@$layers],
-      _teardown   => [],
-      _exceptions => [],
-      __exception => sub { goto INTERNAL_EXCEPTION },
     }, $module;
-  {
+TEST_TRAP_BUILDER_INTERNAL_EXCEPTION: {
     local *@;
+    local @{$current}{qw( _code _layers _teardown _exceptions __exception )}
+      = ( $code, [@$layers], [], [],
+	  sub {
+	    no warnings 'exiting';
+	    last TEST_TRAP_BUILDER_INTERNAL_EXCEPTION;
+	  },
+	);
     eval { $current->Next };
     eval { $_->() } for reverse @{$current->{_teardown}};
     undef @{$current->{_teardown}};
@@ -84,7 +86,6 @@ sub trap {
     my $return = $current->{return} || [];
     return $wantarray ? @$return : $return->[0];
   }
-INTERNAL_EXCEPTION:
   local $Carp::CarpLevel = 1; # skip the real trap{} implementation
   croak join"\n", @{$current->{_exception}};
 }
@@ -161,8 +162,8 @@ sub layer_implementation {
   local( GOT_CARP_NOT ? @CARP_NOT : @ISA ) = _carpnot_for caller;
   my $trapper = shift;
   my @r;
-  for (@_) { # XXX: Consider (Scalar::Util::reftype($_) eq 'CODE' or (Scalar::Util::blessed($_) and overload::Method($_, '&{}')))
-    if (UNIVERSAL::isa($_, 'CODE')) {
+  for (@_) {
+    if ( length ref and eval { exists &$_ } ) {
       push @r, $_;
       next;
     }
@@ -316,7 +317,7 @@ Test::Trap::Builder - Backend for building test traps
 
 =head1 VERSION
 
-Version 0.0.7
+Version 0.0.8
 
 =head1 SYNOPSIS
 
@@ -434,7 +435,7 @@ the queue of layers.  If any of the I<LAYERS> is neither an anonymous
 method nor the name of a layer known to the caller, an exception is
 raised.
 
-=head2 layer_implementation PAKCAGE, LAYERS
+=head2 layer_implementation PACKAGE, LAYERS
 
 Returns the subroutines that implement the requested I<LAYERS>.  If
 any of the I<LAYERS> is neither an anonymous method nor the name of a
@@ -564,8 +565,8 @@ sprung), and a I<cmp_ok> test method template:
   };
   # no accessor for this layer
 
-  $B->multi_layer(flow => qw/ raw die exit timeout /);
-  $B->multi_layer(default => qw/ flow stdout stderr warn simpletee /);
+  $B->multi_layer( flow => qw/ raw die exit timeout / );
+  $B->multi_layer( default => qw/ flow stdout stderr warn simpletee / );
 
   $B->test_method( cmp_ok => 1, 2, \&Test::More::cmp_ok );
 
@@ -577,6 +578,10 @@ a while yet.
 The different implementations of output trap layers have their own
 caveats; see L<Test::Trap::Builder::Tempfile>,
 L<Test::Trap::Builder::PerlIO>, L<Test::Trap::Builder::SystemSafe>.
+
+Diamond inheritence is not (yet?) fully supported.  If one parent has
+registered a test method template C<X> and another has registered an
+accessor C<Y>, the test method C<Y_X> will not be generated.
 
 Threads?  No idea.  It might even work correctly.
 
@@ -590,7 +595,7 @@ Eirik Berg Hanssen, C<< <ebhanssen@allverden.no> >>
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2006 Eirik Berg Hanssen, All Rights Reserved.
+Copyright 2006-2007 Eirik Berg Hanssen, All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

@@ -1,6 +1,6 @@
 package Test::Trap::Builder::SystemSafe;
 
-use version; $VERSION = qv('0.0.5');
+use version; $VERSION = qv('0.0.6');
 
 use strict;
 use warnings;
@@ -86,11 +86,11 @@ __END__
 
 =head1 NAME
 
-Test::Trap::Builder::SystemSafe - Output layer backend using File::Temp
+Test::Trap::Builder::SystemSafe - "Safe" output layer backend using File::Temp
 
 =head1 VERSION
 
-Version 0.0.5
+Version 0.0.6
 
 =head1 DESCRIPTION
 
@@ -114,12 +114,15 @@ after the trap is sprung).
 Disk access may be slow -- certainly compared to the in-memory files
 of PerlIO.
 
-If the file handle is on an in-memory file, it won't be availible to
-other processes in any case, so we get an exception instead.
+If the file handle we try to trap using this backend is on an
+in-memory file, it would not be availible to other processes in any
+case.  Rather than change the semantics of the trapped code or
+silently fail to trap output from forked-off processes, we just raise
+an exception in this case.
 
 If there is another file handle with the same descriptor (f ex after
-an C<< open OTHER, '>&=', THIS >>), we can't get that file descriptor,
-and we get an exception instead.
+an C<< open OTHER, '>&=', THIS >>), we can't get that file descriptor.
+Rather than silently fail, we again raise an exception.
 
 Threads?  No idea.  It might even work correctly.
 
@@ -133,7 +136,7 @@ Eirik Berg Hanssen, C<< <ebhanssen@allverden.no> >>
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2006 Eirik Berg Hanssen, All Rights Reserved.
+Copyright 2006-2007 Eirik Berg Hanssen, All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
