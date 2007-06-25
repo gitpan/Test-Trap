@@ -104,7 +104,11 @@ trap {
     }
 
     # Output from forked-off processes?
-    trap { system $PERL, '-e', 'binmode STDOUT; binmode STDERR; warn qq(0123456789Warning\n); print qq(Printing\n)'; exit 1 };
+    trap {
+      my @args = ($PERL, '-e', 'binmode STDOUT; binmode STDERR; warn qq(0123456789Warning\n); print qq(Printing\n)');
+      system @args and die "system @args failed with $?";
+      exit 1;
+    };
     is( $T->exit, 1, "$desc: exit(1)" );
     is( $T->stdout, $EXPECT, "$desc: system() STDOUT" );
     is( $T->stderr, "0123456789Warning\n", "$desc: system() STDERR" );

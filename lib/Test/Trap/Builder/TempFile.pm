@@ -1,11 +1,12 @@
 package Test::Trap::Builder::TempFile;
 
-use version; $VERSION = qv('0.0.5');
+use version; $VERSION = qv('0.0.6');
 
 use strict;
 use warnings;
 use Test::Trap::Builder;
 use File::Temp qw( tempfile );
+use IO::Handle;
 
 sub import {
   my $builder = Test::Trap::Builder->new;
@@ -42,7 +43,7 @@ Test::Trap::Builder::TempFile - Output layer backend using File::Temp
 
 =head1 VERSION
 
-Version 0.0.5
+Version 0.0.6
 
 =head1 DESCRIPTION
 

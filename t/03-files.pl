@@ -53,6 +53,7 @@ sub runtests(&@) { # runs the trap and performs 6 tests
   print STDERR $n or diagdie "Cannot print on STDERR!";
   STDERR->flush or diagdie "Cannot flush STDERR!";
   $noise .= "$n$n";
+  $warn = do { local $" = "[^\0]*\0"; qr/\A@$warn[^\0]*\z/ };
   my @r = eval { &trap($code) }; # bypass prototype
   my $e = $@;
 SKIP: {
@@ -61,9 +62,9 @@ SKIP: {
       skip "$desc: Internal exception -- bad state", 5;
     };
     is_deeply( $T->return, $return, "$desc: Return" );
-    is_deeply( $T->warn, $warn, "$desc: Warnings" );
+    like( join("\0", @{$T->warn}), $warn, "$desc: Warnings" );
     is( $T->stdout, $stdout, "$desc: STDOUT" );
-    is( $T->stderr, $stderr, "$desc: STDERR" );
+    like( $T->stderr, $stderr, "$desc: STDERR" );
     is( stderr, $noise, ' -- no uncaptured STDERR -- ' );
   }
 }
@@ -71,77 +72,78 @@ SKIP: {
 my $inner_trap;
 sub inner_tests(@) { # performs 5 tests
   my($return, $warn, $stdout, $stderr, $desc) = @_;
+  $warn = do { local $" = "[^\0]*\0"; qr/\A@$warn[^\0]*\z/ };
 SKIP: {
     ok(eval{$inner_trap->isa('Test::Trap')}, "$desc: The object" )
       or skip 'No inner trap object!', 4;
     is_deeply( $inner_trap->return, $return, "$desc: Return" );
-    is_deeply( $inner_trap->warn, $warn, "$desc: Warnings" );
+    like( join("\0", @{$inner_trap->warn}), $warn, "$desc: Warnings" );
     is( $inner_trap->stdout, $stdout, "$desc: STDOUT" );
-    is( $inner_trap->stderr, $stderr, "$desc: STDERR" );
+    like( $inner_trap->stderr, $stderr, "$desc: STDERR" );
   }
   undef $inner_trap; # catch those simple mistakes.
 }
 
 runtests { 5 }
   [5], [],
-  '', '',
+  '', qr/\A\z/,
   'No output';
 
 runtests { my $t; print "Test printing '$t'"; 2}
-  [2], ["Use of uninitialized value in concatenation (.) or string at ${\__FILE__} line ${\( __LINE__-1)}.\n"],
-  "Test printing ''", "Use of uninitialized value in concatenation (.) or string at ${\__FILE__} line ${\( __LINE__-2)}.\n",
+  [2], [ qr/^Use of uninitialized value.* in concatenation \Q(.) or string at / ],
+  "Test printing ''", qr/^Use of uninitialized value.* in concatenation \Q(.) or string at /,
   'Warning';
 
 runtests { close STDERR; my $t; print "Test printing '$t'"; 2}
-  [2], ["Use of uninitialized value in concatenation (.) or string at ${\__FILE__} line ${\(__LINE__-1)}.\n"],
-  "Test printing ''", '',
+  [2], [ qr/^Use of uninitialized value.* in concatenation \Q(.) or string at / ],
+  "Test printing ''", qr/\A\z/,
   'Warning with closed STDERR';
 
 runtests { warn "Testing stderr trapping\n"; 5 }
-  [5], ["Testing stderr trapping\n"],
-  '', "Testing stderr trapping\n",
+  [5], [ qr/^Testing stderr trapping$/ ],
+  '', qr/^Testing stderr trapping$/,
   'warn()';
 
 runtests { close STDERR; warn "Testing stderr trapping\n"; 5 }
-  [5], ["Testing stderr trapping\n"],
-  '', '',
+  [5], [ qr/^Testing stderr trapping$/ ],
+  '', qr/\A\z/,
   'warn() with closed STDERR';
 
 runtests { my @r = trap { warn "Testing stderr trapping\n"; 5 }; $inner_trap = $T; @r}
   [5], [],
-  '', '',
+  '', qr/\A\z/,
   'warn() in inner trap';
 inner_tests
-  [5], ["Testing stderr trapping\n"],
-  '', "Testing stderr trapping\n",
+  [5], [ qr/^Testing stderr trapping$/ ],
+  '', qr/^Testing stderr trapping$/,
   ' -- the inner trap -- warn()';
 
 runtests { print STDERR "Test printing"; 2}
   [2], [],
-  '', 'Test printing',
+  '', qr/^Test printing\z/,
   'print() on STDERR';
 
 runtests { close STDOUT; print "Testing stdout trapping\n"; 6 }
-  [6], ["print() on closed filehandle STDOUT at ${\__FILE__} line ${\(__LINE__-1)}.\n"],
-  '', "print() on closed filehandle STDOUT at ${\__FILE__} line ${\(__LINE__-2)}.\n",
+  [6], [ qr/^print\Q() on closed filehandle STDOUT at / ],
+  '', qr/^print\Q() on closed filehandle STDOUT at /,
   'print() with closed STDOUT';
 
 runtests { close STDOUT; my @r = trap { print "Testing stdout trapping\n"; (5,6)}; $inner_trap = $T; @r }
   [5, 6], [],
-  '', '',
+  '', qr/\A\z/,
   'print() in inner trap with closed STDOUT';
 inner_tests
-  [5, 6], ["print() on closed filehandle STDOUT at ${\__FILE__} line ${\(__LINE__-5)}.\n"],
-  '', "print() on closed filehandle STDOUT at ${\__FILE__} line ${\(__LINE__-6)}.\n",
+  [5, 6], [ qr/^print\Q() on closed filehandle STDOUT at / ],
+  '', qr/^print\Q() on closed filehandle STDOUT at /,
   ' -- the inner trap -- print() with closed STDOUT';
 
 runtests { close STDERR; my @r = trap { warn "Testing stderr trapping\n"; 2 }; $inner_trap = $T; @r }
   [2], [],
-  '', '',
+  '', qr/\A\z/,
   'warn() in inner trap with closed STDERR';
 inner_tests
-  [2], ["Testing stderr trapping\n"],
-  '', '',
+  [2], [ qr/^Testing stderr trapping$/ ],
+  '', qr/\A\z/,
   ' -- the inner trap -- warn() with closed STDERR';
 
 1;

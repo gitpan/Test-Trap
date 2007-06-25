@@ -61,12 +61,13 @@ ok( $trap->void, 'Void context' );
 is_deeply( $trap->return, [], 'Void return' );
 
 # exit compiled to CORE::GLOBAL::exit, which is undefined at runtime ...
+my $flag;
 trap {
   local *CORE::GLOBAL::exit;
   trap { exit };
   is( $trap->leaveby, 'exit', 'Expecting to have exited' );
   exit; # should die!
-  my $flag = 1;
+  $flag = 1;
   END { ok( !$flag, 'Code past (dying) exit should compile, but not run' ) }
 };
 like( $trap->die, qr/^Undefined subroutine &CORE::GLOBAL::exit called at /, 'Dies: Undefined exit()' );

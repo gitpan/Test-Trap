@@ -1,11 +1,12 @@
 package Test::Trap::Builder::SystemSafe;
 
-use version; $VERSION = qv('0.0.6');
+use version; $VERSION = qv('0.0.7');
 
 use strict;
 use warnings;
 use Test::Trap::Builder;
 use File::Temp qw( tempfile );
+use IO::Handle;
 
 sub import {
   my $builder = Test::Trap::Builder->new;
@@ -29,15 +30,11 @@ sub import {
 		 );
     binmode *$globref; # must write with the same mode as we read.
     $globref->autoflush(1);
-    $globref->print("Work around a strange buffering(?) bug.\n");
     $self->Teardown($_) for sub {
       if ($pid == $$) {
 	# this process opened it, so it gets to collect the contents:
-	local $/ = "\n";
-	$fh->getline;
-	undef $/;
-	my $s = $fh->getline;
-	$self->{$name} .= $s if defined $s;
+	local $/;
+	$self->{$name} .= $fh->getline;
 	close $fh; # don't leak this one either!
       }
       # close and reopen the file to the keeper!
@@ -90,7 +87,7 @@ Test::Trap::Builder::SystemSafe - "Safe" output layer backend using File::Temp
 
 =head1 VERSION
 
-Version 0.0.6
+Version 0.0.7
 
 =head1 DESCRIPTION
 

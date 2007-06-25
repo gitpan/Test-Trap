@@ -1,5 +1,29 @@
 Revision history for Test-Trap
 
+0.0.23	Mon Jun 25 22:47:50 CEST 2007
+	More blead stuff; otherwise just making a convenient small-stuff cut.
+	Test::Trap:
+	 - Don't use IO::Handle here.  (Only needed with File::Temp.)
+	Test::Trap::Builder::PerlIO:
+	 - Don't need ->autoflush, nor IO::Handle.
+	Test::Trap::Builder::TempFile:
+	 - Need IO::Handle, so use it.
+	Test::Trap::Builder::SystemSafe:
+	 - Need IO::Handle, so use it.
+	 - The strange buffering bug seems to have disappeared
+           (between revisions 99 and 100), though I have no idea how.
+	   This ought to mean I no longer need to maintain the clumsy
+	   work-around.  So, removed!
+	Tests:
+	 - As a concession to the CPANTS game, reinstated the pod tests.  :)
+	 - The regression test for the workaround for the pseudo-fork
+	   bug was broken.  Fixed by using the (implicit) :default
+	   layer in t/08-fork.pl.
+	 - t/02-reentrant.t caused a warning under bleed.  Fixed.
+	 - t/03-files.pl is now blead-ready (warning texts changed).
+	 - t/11-systemsafe-basic.pl now detects system() failure and
+	   fails the relevant tests as well (thank you cpan testsers).
+
 0.0.22	Sun May 20 23:21:36 CEST 2007
 	No big changes this time.
 	Cleanup:

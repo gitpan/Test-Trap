@@ -1,6 +1,6 @@
 package Test::Trap::Builder::PerlIO;
 
-use version; $VERSION = qv('0.0.5');
+use version; $VERSION = qv('0.0.6');
 
 use strict;
 use warnings;
@@ -17,7 +17,6 @@ sub import {
       no warnings 'io';
       open *$globref, '>', \$self->{$name};
     }
-    $globref->autoflush(1);
     $self->Next;
   };
 }
@@ -32,7 +31,7 @@ Test::Trap::Builder::PerlIO - Output layer backend using PerlIO::scalar
 
 =head1 VERSION
 
-Version 0.0.5
+Version 0.0.6
 
 =head1 DESCRIPTION
 

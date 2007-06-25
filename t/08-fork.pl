@@ -18,7 +18,7 @@ BEGIN {
 }
 
 BEGIN {
-  use_ok( 'Test::Trap', ':raw:exit:stdout(tempfile):stderr(tempfile):warn' );
+  use_ok( 'Test::Trap' );
 }
 
 # check that the setup works -- the exit is still trapped:

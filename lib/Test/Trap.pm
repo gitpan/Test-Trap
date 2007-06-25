@@ -1,11 +1,10 @@
 package Test::Trap;
 
-use version; $VERSION = qv('0.0.22');
+use version; $VERSION = qv('0.0.23');
 
 use strict;
 use warnings;
 use Carp qw( croak );
-use IO::Handle;
 use Data::Dump qw(dump);
 use Test::Trap::Builder qw( :methods );
 
@@ -244,7 +243,7 @@ Test::Trap - Trap exit codes, exceptions, output, etc.
 
 =head1 VERSION
 
-Version 0.0.22
+Version 0.0.23
 
 =head1 SYNOPSIS
 
