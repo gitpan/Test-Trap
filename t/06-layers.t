@@ -1,43 +1,155 @@
 #!perl -T
 # -*- mode: cperl ; compile-command: "cd .. ; ./Build ; prove -vb t/06-*.t" -*-
-use Test::More tests => 5+2 + 10*5;
+use Test::More tests => 4*15 + 4*5 + 3*6 + 5*13; # non-default standard layers + output backend + internal exceptions + exits
 use IO::Handle;
 use File::Temp qw( tempfile );
+use Data::Dump qw( dump );
 use strict;
 use warnings;
 
-BEGIN {
-  use_ok( 'Test::Trap', '$D', 'default' );
+use Test::Trap; # XXX: testing ourselves ... too early, I suppose?
+
+# The built-in non-default layers -- up against a standard.  So far
+# just context manipulation:
+
+for my $case
+  ( [ standard => [           ], context => undef, ],
+    [ Void     => [ ':void'   ], void    => undef, ],
+    [ Scalar   => [ ':scalar' ], scalar  => '',    ],
+    [ List     => [ ':list'   ], list    => 1,     ],
+  ) {
+    my ($name, $layer, $context, $wantarray) = @$case;
+    my $x = 0;
+    eval sprintf <<'TEST', ($name) x 4 or diag "Error in eval $name: $@";
+#line 1 (%s)
+      BEGIN {
+	my @L = @$layer; # be nice to perl562
+	trap { use_ok 'Test::Trap', '$T', $name, @L };
+	$trap->did_return(" ... importing $name");
+	$trap->quiet(' ... quietly');
+      }
+
+      () = trap { my $x; () = %s { $x = wantarray }; $x };
+      if ($context eq 'context') {
+        $trap->return_is_deeply( [1],  ' ... list context propagated' );
+        $T->wantarray_is( 1, ' ... list context propagated' );
+      }
+      else {
+        $trap->return_is_deeply( [$wantarray],  " ... forced $context context" );
+        $T->wantarray_is( $wantarray, " ... forced $context context" );
+      }
+      $T->quiet( " ... with no output in the $name trap" );
+      $trap->quiet( " ... and no output from the $name trap itself" );
+
+      () = trap { my $x; scalar %s { $x = wantarray }; $x };
+      if ($context eq 'context') {
+        $trap->return_is_deeply( [''],  ' ... scalar context propagated' );
+        $T->wantarray_is( '', ' ... scalar context propagated' );
+      }
+      else {
+        $trap->return_is_deeply( [$wantarray],  " ... forced $context context" );
+        $T->wantarray_is( $wantarray, " ... forced $context context" );
+      }
+      $T->quiet( " ... with no output in the $name trap" );
+      $trap->quiet( " ... and no output from the $name trap itself" );
+
+
+      () = trap { my $x; %s { $x = wantarray }; $x };
+      if ($context eq 'context') {
+        $trap->return_is_deeply( [undef],  ' ... void context propagated' );
+        $T->wantarray_is( undef, ' ... void context propagated' );
+      }
+      else {
+        $trap->return_is_deeply( [$wantarray],  " ... forced $context context" );
+        $T->wantarray_is( $wantarray, " ... forced $context context" );
+      }
+      $T->quiet( " ... with no output in the $name trap" );
+      $trap->quiet( " ... and no output from the $name trap itself" );
+      1;
+TEST
 }
 
-BEGIN {
-  use_ok( 'Test::Trap', '$R', 'raw', ':flow' );
+# The exceptions -- different layers that are supposed to raise an
+# internal exception are added (in two copies!) to a default setup.
+# Exceptions may be raised in the application of the layer, in the
+# teardown, or both.  Exceptions in the application of the layer are
+# immediate (and terminate the trap), but exceptions in teardown are
+# delayed, and any number of teardown actions can raise an exception.
+
+for my $case
+  ( [ exception1 => sub { die "going down\n" },
+      "Rethrowing internal exception: going down\n at (exception1) line 7\n",
+      0, '(in layer, so user code not run)',
+    ],
+    [ exception2 => sub { my $self = shift; $self->Teardown(sub { die "going up\n" } ); $self->Next },
+      join( $/,
+	    "Rethrowing teardown exception: going up\n",
+	    "Rethrowing teardown exception: going up",
+	    " at (exception2) line 7\n",
+	  ),
+      1, '(in teardown, so user code has been run)',
+    ],
+    [ exception3 => sub { my $self = shift; $self->Teardown(sub { die "going up\n" } ); die "going down\n" },
+      join( $/,
+	    "Rethrowing internal exception: going down\n",
+	    "Rethrowing teardown exception: going up",
+	    " at (exception3) line 7\n",
+	  ),
+      0, '(in layer, so user code has not run)',
+    ],
+  ) {
+    my ($name, $layer, $exception, $value, $test_name) = @$case;
+    my $x = 0;
+    eval sprintf <<'TEST', ($name) x 2, ( $value ? (teardown => 'run') : (layer => 'not run') ) or diag "Error in eval $name: $@";
+#line 1 (%s)
+      BEGIN {
+	my $L = $layer; # be nice to perl562
+	trap { use_ok 'Test::Trap', '$T', $name, $L, $L };
+	$trap->did_return(" ... importing $name");
+	$trap->quiet(' ... quietly');
+      }
+      trap { %s { ++$x } };
+      $trap->die_is( $exception,  ' ... internal exceptions caught and rethrown' );
+      is( $x, $value, ' ... in %s, so user code %s' );
+      $trap->quiet;
+      1;
+TEST
 }
 
-BEGIN {
-  use_ok( 'Test::Trap', '$M', 'mixed', ':raw:warn:stderr:stdout:exit:die' );
+# Test the new :output() layer:
+for my $case #    layers                        backendlist             useable
+  ( [ Tempfile => [ ':output(tempfile)'      ], '"tempfile"',           1                                  ],
+    [ Perlio   => [ ':output(perlio)'        ], '"perlio"',             !!eval q{ use PerlIO 'scalar'; 1 } ],
+    [ Mixed    => [ ':output(nosuch;perlio)' ], '("nosuch", "perlio")', !!eval q{ use PerlIO 'scalar'; 1 } ],
+    [ Badout   => [ ':output(nosuch)'        ], '"nosuch"',             0                                  ],
+  ) {
+  my ($name, $layer, $backendlist, $usable) = @$case;
+  eval sprintf <<'TEST', ($name) x 2 or diag "Error in $name eval: $@";
+#line 1 (%s)
+    BEGIN {
+      my @L = @$layer; # be nice to perl562
+      trap { use_ok 'Test::Trap', '$T', $name, @L };
+      $trap->did_return(" ... importing $name");
+      $trap->quiet(' ... quietly');
+    }
+    () = trap { %s { print "foo" }; $T->stdout };
+    if ($usable) {
+      $trap->return_is_deeply( ['foo'], "Trapped the STDOUT with $name" );
+    }
+    else {
+      $trap->die_like( qr/^No output layer implementation found for \Q$backendlist/, "Died with $name" );
+    }
+    $trap->warn_is_deeply( [], 'No warnings' );
+    1;
+TEST
+  $@ and die "Got $@";
 }
 
-local @ARGV; # in case some harness wants to mess with it ...
-my @argv = ('A');
-BEGIN {
-  # special -- a localized @ARGV, setting properties inargv and outargv on return:
-  use_ok( 'Test::Trap', '$S', 'special', ':default', $_ ) for sub {
-    my $self = shift;
-    local *ARGV = \@argv;
-    $self->{inargv} = [@argv];
-    $self->Next;
-    $self->{outargv} = [@argv];
-  };
-}
-
-BEGIN {
-  use_ok( 'Test::Trap', '$W', 'warntrap', ':flow:warn' );
-}
+# Need some setup to test missing STDOUT/STDERR trapping layer:
 
 STDOUT: {
   close STDOUT;
-  my ($outfh, $outname) = tempfile;
+  my ($outfh, $outname) = tempfile( UNLINK => 1 );
   open STDOUT, '>', $outname;
   STDOUT->autoflush(1);
   print STDOUT '';
@@ -46,81 +158,83 @@ STDOUT: {
 
 STDERR: {
   close STDERR;
-  my ($errfh, $errname) = tempfile;
+  my ($errfh, $errname) = tempfile( UNLINK => 1 );
   open STDERR, '>', $errname;
   STDERR->autoflush(1);
   print STDOUT '';
   sub stderr () { local $/; open ERR, '<', $errname or die; <ERR> }
 }
 
-is( stdout, '', 'No untrapped STDOUT' );
-is( stderr, '', 'No untrapped STDERR' );
+# More setup, to deal with the "special" argv-messing layer:
 
-default { print "Hello"; warn "Hi!\n"; push @ARGV, 'D'; exit 1 };
-is( $D->exit, 1, '&default' );
-is( $D->stdout, "Hello", '.' );
-is( $D->stderr, "Hi!\n", '.' );
-is_deeply( $D->warn, ["Hi!\n"], '.' );
-ok( !exists $D->{inargv}, '.' );
-ok( !exists $D->{outargv}, '.' );
-is_deeply( \@ARGV, ['D'], '.' );
-is_deeply( \@argv, ['A'], '.' );
-is( stdout, '', '.' );
-is( stderr, '', '.' );
+local @ARGV; # in case some harness wants to mess with it ...
+my @argv = ('A');
+my $special = sub {
+  my $self = shift;
+  local *ARGV = \@argv;
+  $self->{inargv} = [@argv];
+  $self->Next;
+  $self->{outargv} = [@argv];
+};
 
-local $D; # guard me against cut-and-paste errors
+# And then we apply varying combinations of layers, to test what is
+# trapped and what isn't:
 
-raw { print "Hello"; warn "Hi!\n"; push @ARGV, 'R'; exit 1 };
-is( $R->exit, 1, '&raw' );
-is( $R->stdout, undef, '.' );
-is( $R->stderr, undef, '.' );
-is_deeply( $R->warn, undef, '.' );
-ok( !exists $R->{inargv}, '.' );
-ok( !exists $R->{outargv}, '.' );
-is_deeply( \@ARGV, ['D', 'R'], '.' );
-is_deeply( \@argv, ['A'], '.' );
-is( stdout, "Hello", '.' );
-is( stderr, "Hi!\n", '.' );
-local $R; # guard me against cut-and-paste errors
-
-mixed { print "Hello"; warn "Hi!\n"; push @ARGV, 'M'; exit 1 };
-is( $M->exit, 1, '&default' );
-is( $M->stdout, "Hello", '.' );
-is( $M->stderr, "Hi!\n", '.' );
-is_deeply( $M->warn, ["Hi!\n"], '.' );
-ok( !exists $M->{inargv}, '.' );
-ok( !exists $M->{outargv}, '.' );
-is_deeply( \@ARGV, ['D', 'R', 'M'], '.' );
-is_deeply( \@argv, ['A'], '.' );
-is( stdout, "Hello", '.' );
-is( stderr, "Hi!\n", '.' );
-
-local $M; # guard me against cut-and-paste errors
-
-special { print "Hello"; warn "Hi!\n"; push @ARGV, 'S'; exit 1 };
-is( $S->exit, 1, '&special' );
-is( $S->stdout, "Hello", '.' );
-is( $S->stderr, "Hi!\n", '.' );
-is_deeply( $S->warn, ["Hi!\n"], '.' );
-is_deeply( $S->{inargv}, ['A'], '.' );
-is_deeply( $S->{outargv}, ['A', 'S'], '.' );
-is_deeply( \@ARGV, ['D', 'R', 'M'], '.' );
-is_deeply( \@argv, ['A', 'S'], '.' );
-is( stdout, "Hello", '.' );
-is( stderr, "Hi!\n", '.' );
-
-local $S; # guard me against cut-and-paste errors
-
-warntrap { print "Hello"; warn "Hi!\n"; push @ARGV, 'W'; exit 1 };
-is( $W->exit, 1, '&special' );
-is( $W->stdout, undef, '.' );
-is( $W->stderr, undef, '.' );
-is_deeply( $W->warn, ["Hi!\n"], '.' );
-ok( !exists $W->{inargv}, '.' );
-ok( !exists $W->{outargv}, '.' );
-is_deeply( \@ARGV, ['D', 'R', 'M', 'W'], '.' );
-is_deeply( \@argv, ['A', 'S'], '.' );
-is( stdout, "Hello" x 2, '.' );
-is( stderr, "Hi!\n" x 2, '.' );
-
-local $W; # guard me against cut-and-paste errors
+for my $case
+  ( [ default  => [ ':default' ],                        qw( stdout stderr warn ) ],
+    [ raw      => [ ':flow' ],                           qw( ) ],
+    [ mixed    => [ ':raw:warn:stderr:stdout:exit:die'], qw( stdout stderr warn ) ],
+    [ special  => [ ':default', $special ],              qw( stdout stderr warn argv )],
+    [ warntrap => [ ':flow:warn' ],                      qw( warn ) ],
+  ) {
+    my ($name, $layer, @active) = @$case;
+    my %t = map { $_ => 1 } @active;
+    my @a = @ARGV;
+    my @a2 = @argv;
+    my $out = stdout;
+    my $err = stderr;
+    eval sprintf <<'TEST', ($name) x 2 or diag "Error in eval $name: $@";
+#line 1 (%s)
+      BEGIN {
+	my @L = @$layer; # be nice to perl562
+	trap { use_ok 'Test::Trap', '$T', $name, @L };
+	$trap->did_return(" ... importing $name");
+	$trap->quiet(' ... quietly');
+      }
+      %s { print 'Hello'; warn "Hi!\n"; push @ARGV, $name; exit 1 };
+      is( $T->exit, 1, "&$name traps exit code 1" );
+      if ($t{stdout}) {
+	is( $T->stdout, 'Hello', ' ... the stdout' );
+	is( stdout,     $out,    '     (preventing output on the previous STDOUT)' );
+      }
+      else {
+	is( $T->stdout, undef,          ' ... no stdout' );
+	is( stdout,     $out . 'Hello', '     (leaving the output going to the previous STDOUT)' );
+      }
+      if ($t{stderr}) {
+	is( $T->stderr, "Hi!\n", ' ... the stderr' );
+	is( stderr,     $err,    '     (preventing output on the previous STDERR)' );
+      }
+      else {
+	is( $T->stderr, undef,          ' ... no stderr' );
+	is( stderr,     $err . "Hi!\n", '     (leaving the output going to the previous STDERR)' );
+      }
+      &is_deeply( scalar $T->warn,
+		  $t{warn} ? ( ["Hi!\n"], ' ... the warnings' )
+			   : (  undef,    ' ... no warnings'  ),
+		);
+      if ($t{argv}) {
+	is_deeply( $T->{inargv},  \@a2,         ' ... the in-@ARGV' );
+	is_deeply( $T->{outargv}, [@a2, $name], ' ... the out-@ARGV' );
+	is_deeply( \@ARGV,        \@a,          '     (keeping the real @ARGV unchanged)' );
+	is_deeply( \@argv,        [@a2, $name], '     (instead modifying the lexical @argv)' );
+      }
+      else {
+	is_deeply( $T->{inargv},  undef,       ' ... no in-@ARGV' );
+	is_deeply( $T->{outargv}, undef,       ' ... no out-@ARGV' );
+	is_deeply( \@ARGV,        [@a, $name], '     (so not preventing the modification of the real @ARGV)' );
+	is_deeply( \@argv,        \@a2,        '     (leaving the lexical @argv unchanged)' );
+      }
+      1;
+TEST
+}

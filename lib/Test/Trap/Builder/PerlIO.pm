@@ -1,6 +1,6 @@
 package Test::Trap::Builder::PerlIO;
 
-use version; $VERSION = qv('0.0.6');
+use version; $VERSION = qv('0.1.0');
 
 use strict;
 use warnings;
@@ -8,8 +8,7 @@ use Test::Trap::Builder;
 use PerlIO 'scalar';
 
 sub import {
-  my $builder = Test::Trap::Builder->new;
-  $builder->output_layer_backend( perlio => $_ ) for sub {
+  Test::Trap::Builder->output_layer_backend( perlio => $_ ) for sub {
     my $self = shift;
     my ($name, $fileno, $globref) = @_;
     local *$globref;
@@ -31,7 +30,7 @@ Test::Trap::Builder::PerlIO - Output layer backend using PerlIO::scalar
 
 =head1 VERSION
 
-Version 0.0.6
+Version 0.1.0
 
 =head1 DESCRIPTION
 

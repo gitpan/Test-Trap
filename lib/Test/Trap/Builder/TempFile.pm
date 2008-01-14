@@ -1,6 +1,6 @@
 package Test::Trap::Builder::TempFile;
 
-use version; $VERSION = qv('0.0.6');
+use version; $VERSION = qv('0.1.0');
 
 use strict;
 use warnings;
@@ -9,12 +9,11 @@ use File::Temp qw( tempfile );
 use IO::Handle;
 
 sub import {
-  my $builder = Test::Trap::Builder->new;
-  $builder->output_layer_backend( tempfile => $_ ) for sub {
+  Test::Trap::Builder->output_layer_backend( tempfile => $_ ) for sub {
     my $self = shift;
     my ($name, $fileno, $globref) = @_;
     my $pid = $$;
-    my ($fh, $file) = tempfile; # XXX: Test?
+    my ($fh, $file) = tempfile( UNLINK => 1 ); # XXX: Test?
     binmode $fh; # superfluos?
     local *$globref;
     {
@@ -43,7 +42,7 @@ Test::Trap::Builder::TempFile - Output layer backend using File::Temp
 
 =head1 VERSION
 
-Version 0.0.6
+Version 0.1.0
 
 =head1 DESCRIPTION
 
@@ -76,7 +75,7 @@ Eirik Berg Hanssen, C<< <ebhanssen@allverden.no> >>
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2006-2007 Eirik Berg Hanssen, All Rights Reserved.
+Copyright 2006-2008 Eirik Berg Hanssen, All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

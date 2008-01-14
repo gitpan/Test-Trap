@@ -6,8 +6,7 @@ use warnings;
 # Tests for the purpose of shutting up Devel::Cover about some stuff
 # that really is tested.  Like, trust me already?
 
-my $CURRENT; # access the internals
-use Test::Trap qw(:default), sub { $CURRENT = shift; $CURRENT->Next };
+use Test::Trap;
 
 # Set up a plan:
 use Test::Builder; BEGIN { my $t = Test::Builder->new; $t->plan( tests => 7 ) }
@@ -29,7 +28,7 @@ BEGIN {
 trap {
   Test::Trap::Builder->new->layer_implementation('Test::Trap', []);
 };
-$trap->die_like( qr/^Unknown trapper layer \"ARRAY/, 'Cannot specify layers as arrayrefs' );
+$trap->die_like( qr/^Unknown trap layer \"ARRAY/, 'Cannot specify layers as arrayrefs' );
 
 my $early_exit = 1;
 END {
@@ -37,8 +36,5 @@ END {
   is( $?, 8, 'Exiting with exit code 8' );
   # let Test::More handle the exit code from here.
 }
-trap {
-  $CURRENT->{__exception} = sub { return };
-  $CURRENT->Exception("Failing");
-};
+$trap->Exception("Failing");
 undef $early_exit;

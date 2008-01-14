@@ -31,7 +31,7 @@ BEGIN {
 
 STDERR: {
   close STDERR;
-  my ($errfh, $errname) = tempfile;
+  my ($errfh, $errname) = tempfile( UNLINK => 1 );
   open STDERR, '>', $errname;
   STDERR->autoflush(1);
   print STDOUT '';

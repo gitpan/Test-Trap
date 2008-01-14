@@ -1,5 +1,69 @@
 Revision history for Test-Trap
 
+0.1.0	Mon Jan 14 18:31:09 CET 2008
+	Overall:
+	 - Continuing to fix small stuff, but also beginning to mess
+	   with the interfaces, adding new stuff and rewriting most of
+	   the builder.
+	 - Applied a patch from Michael Schilli (in response to a bug
+	   reported by Kimo Rosenbaum) adding UNLINK => 1 to the
+	   arguments for File::Temp::tempfile().  (Duh!)
+	Documentation:
+	 - revised section on TTB exports;
+	 - revised section on TTB methods;
+	 - document the new pseudo-layers;
+	Nomenclature:
+	 - s/trapper layer/trap layer/g;
+	 - s/trap (module|package)/trapper/g;	# (and similar)
+	 - s/result object/trap object/g;	# consistency
+	 - s/object/trap/g;			# argspec ~~ clarity
+	 - s/all/entirety/g;			# argspec ~~ s/adjective/noun/
+	 - s/indexed/element/g;			# argspec ~~ s/adjective/noun/
+	 - ... but keep backwards compatibility with the previous argspec,
+	       for now (just don't advertise it in the docs);
+	Test::Trap::Builder:
+	 - clean up the test method generation code;
+	 - clean up the accessor method generation code;
+	 - clean up the layer registration code;
+	 - pass the args string to the simple layers;
+	 - new export method: Prop, returning a hash for tag-on properies;
+	 - new export method: DESTROY, cleaning up tag-on properties;
+	 - new export method: TestFailure, running on_test_failure tag-on;
+	 - new export method: TestAccessor, returning test_accessor tag-on;
+	 - pull out members test and accessor, as these are conceptually
+	   (private) trapper class state, not builder instance members;
+	 - pull out member output_layer_backend, as this is
+	   conceptually (private) builder class state, not a builder
+	   instance member;
+	 - turn members _code, _layers, _teardown, _test_accessor, and
+	   _exception, (all without the leading underscore) into tag-on
+	   properties, rather than pollute the trap object;
+	 - get rid of more trap object pollution: __exception;
+	 - in test callback argspecs, refer to trap objects as "trap",
+	   not "object";
+	 - better handling of exceptions in layers and teardown.
+	Test::Trap:
+	 - run the test failure callback from the quiet() test;
+	 - new utility method: diag_all, basically {diag dump $self};
+	 - new utility method: diag_all_once, a "smarter" version.
+	 - new (non-default) pseudo-layers:
+	    :void      - user code is trapped in void context
+	    :scalar    - user code is trapped in scalar context
+	    :list      - user code is trapped in list context
+	    :on_fail() - method name for test failures callback
+	Tests:
+	 - full coverage for the new methods and exception handling;
+	 - t/00-load.t does BAIL_OUT if Test::Trap cannot be used;
+	 - t/07-subclass.t no longer needs to test the case of the empty 
+	   default_output_layer_backends(), since this has now been
+	   removed from the extension interface;
+	 - t/06-layers.t cleaned up and expanded to cover the new layers; except
+	 - t/10-tester.t covers the :on_fail() layer;
+	 - t/10-tester.t now tests a simple non-leaveby accessor too;
+	 - t/11-systemsafe-basic.pl now actually prints diagnostics when the
+	   system() call fails.  Duh!  (I still don't know why some Cygwin
+	   setups fails these tests, but I'd sure like to.)
+
 0.0.23	Mon Jun 25 22:47:50 CEST 2007
 	More blead stuff; otherwise just making a convenient small-stuff cut.
 	Test::Trap:

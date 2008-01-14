@@ -1,28 +1,36 @@
 #!perl -T
 # -*- mode: cperl ; compile-command: "cd .. ; ./Build ; prove -vb t/10-*.t" -*-
 use Test::Tester;
-use Test::More tests => 2 + 3 + 7*15;
+use Test::More tests => 2 + 3 + 7*15 + 5*3;
 use strict;
 use warnings;
 
 use Test::Trap qw( trap $T );
+use Test::Trap qw( diag_all $T :on_fail(diag_all) );
+use Test::Trap qw( diag_all_once $T :on_fail(diag_all_once) );
 
-# Box with warning and return
+# Trap with warning and return
 my ($prem, @t) = run_tests
   ( sub {
       my $t = trap { warn "A warning"; 5 };
       $T->return_is_deeply( [5], '5 was returned' );
+      $T->warn_like( 0, qr/^A warning\b/, 'A warning was given' );
     },
   );
 is( $prem, '' );
-is( $#t, 0 );
+is( $#t, 1 );
 is( $t[0]{ok}, 1, '->return_is_deeply [5]');
 is( $t[0]{actual_ok}, 1 );
 is( $t[0]{name}, '5 was returned' );
 is( $t[0]{diag}, '' );
 is( $t[0]{depth}, 1 );
+is( $t[1]{ok}, 1, '->warn_like');
+is( $t[1]{actual_ok}, 1 );
+is( $t[1]{name}, 'A warning was given' );
+is( $t[1]{diag}, '' );
+is( $t[1]{depth}, 1 );
 
-# Box with silent exit
+# Trap with silent exit
 ($prem, @t) = run_tests
   ( sub {
       my $t = trap { exit };
@@ -39,27 +47,37 @@ is( $t[0]{diag}, <<'EOE' );
 EOE
 is( $t[0]{depth}, 1 );
 
-# Box with exception
+# Trap with exception and diag_all
 ($prem, @t) = run_tests
   ( sub {
-      my $t = trap { die "Argh\n" };
+      my $t = diag_all { die "Argh\n" };
       $T->return_nok(0, 'Return with (first) false value');
+      $T->exit_nok(q/Exit with (Perl's idea of a) false value/);
     },
   );
 is( $prem, '' );
-is( $#t, 0 );
+is( $#t, 1 );
 is( $t[0]{ok}, 0, '->return_nok');
 is( $t[0]{actual_ok}, 0 );
 is( $t[0]{name}, 'Return with (first) false value' );
-is( $t[0]{diag}, <<'EOE' );
+is( $t[0]{diag}, sprintf <<'EOE', Data::Dump::dump($T) );
     Expecting to return(), but instead die()ed with "Argh\n"
+%s
 EOE
 is( $t[0]{depth}, 1 );
+is( $t[1]{ok}, 0, '->exit_nok');
+is( $t[1]{actual_ok}, 0 );
+is( $t[1]{name}, q/Exit with (Perl's idea of a) false value/ );
+is( $t[1]{diag}, sprintf <<'EOE', Data::Dump::dump($T) );
+    Expecting to exit(), but instead die()ed with "Argh\n"
+%s
+EOE
+is( $t[1]{depth}, 1 );
 
-# Box with print and exit
+# Trap with print, exit, and diag_all
 ($prem, @t) = run_tests
   ( sub {
-      my $t = trap { print "Hello world"; exit };
+      my $t = diag_all { print "Hello world"; exit };
       $T->exit_nok('Exit with false value');
     },
   );
@@ -71,27 +89,39 @@ is( $t[0]{name}, 'Exit with false value' );
 is( $t[0]{diag}, '' );
 is( $t[0]{depth}, 1 );
 
-# Box with print and exit 5
+# Trap with print, and exit 5, and diag_all_once
 ($prem, @t) = run_tests
   ( sub {
-      my $t = trap { print "Hello world"; exit 5 };
+      my $t = diag_all_once { print "Hello world"; exit 5 };
       $T->exit_nok('Exit with false value');
+      $T->exit_isnt(5, 'Exit with non-5 value');
     },
   );
 is( $prem, '' );
-is( $#t, 0 );
+is( $#t, 1 );
 is( $t[0]{ok}, 0, '->exit_nok');
 is( $t[0]{actual_ok}, 0 );
 is( $t[0]{name}, 'Exit with false value' );
-is( $t[0]{diag}, <<'EOE' );
+is( $t[0]{diag}, sprintf <<'EOE', Data::Dump::dump($T) );
     Expecting false value in exit(), but got 5 instead
+%s
 EOE
 is( $t[0]{depth}, 1 );
+is( $t[1]{ok}, 0, '->exit_isnt');
+is( $t[1]{actual_ok}, 0 );
+is( $t[1]{name}, 'Exit with non-5 value' );
+is( $t[1]{diag}, <<'EOE' );
+    '5'
+        ne
+    '5'
+(as above)
+EOE
+is( $t[1]{depth}, 1 );
 
-# Box with multiple return values
+# Trap with multiple return values and diag_all_once
 ($prem, @t) = run_tests
   ( sub {
-      my ($t) = trap { return 3..7 };
+      my ($t) = diag_all_once { return 3..7 };
       $T->return_like( 1, qr/4/, 'return[1] matches /4/' );
     },
   );
@@ -103,7 +133,7 @@ is( $t[0]{name}, 'return[1] matches /4/' );
 is( $t[0]{diag}, '' );
 is( $t[0]{depth}, 1 );
 
-# Quiet box
+# Quiet trap, with no on-test-failure callback
 ($prem, @t) = run_tests
   ( sub {
       my ($t) = trap { return 3..7 };
@@ -118,10 +148,10 @@ is( $t[0]{name}, '' );
 is( $t[0]{diag}, '' );
 is( $t[0]{depth}, 1 );
 
-# Warning box
+# Warning trap with diag_all_once
 ($prem, @t) = run_tests
   ( sub {
-      my ($t) = trap { warn "Hello!\n" };
+      my ($t) = diag_all_once { warn "Hello!\n" };
       $T->quiet('In denial about STDERR');
     },
   );
@@ -130,12 +160,13 @@ is( $#t, 0 );
 is( $t[0]{ok}, 0, '->quiet');
 is( $t[0]{actual_ok}, 0 );
 is( $t[0]{name}, 'In denial about STDERR' );
-is( $t[0]{diag}, <<'EOE' );
+is( $t[0]{diag}, sprintf <<'EOE', Data::Dump::dump($T) );
 Expecting no STDERR, but got "Hello!\n"
+%s
 EOE
 is( $t[0]{depth}, 1 );
 
-# Printing box
+# Printing trap with no on-test-failure callback
 ($prem, @t) = run_tests
   ( sub {
       my ($t) = trap { print "Hello!\n" };
@@ -152,7 +183,7 @@ Expecting no STDOUT, but got "Hello!\n"
 EOE
 is( $t[0]{depth}, 1 );
 
-# Noisy box
+# Noisy trap
 ($prem, @t) = run_tests
   ( sub {
       my ($t) = trap { warn "world!\n"; print "Hello!\n" };
@@ -170,7 +201,7 @@ Expecting no STDERR, but got "world!\n"
 EOE
 is( $t[0]{depth}, 1 );
 
-# Noisy box
+# Noisy trap
 ($prem, @t) = run_tests
   ( sub {
       my ($t) = trap { warn "world!\n"; print "Hello!\n" };
@@ -185,7 +216,7 @@ is( $t[0]{name}, 'Should return' );
 is( $t[0]{diag}, '' );
 is( $t[0]{depth}, 1 );
 
-# Exiting box
+# Exiting trap
 ($prem, @t) = run_tests
   ( sub {
       my ($t) = trap { exit };
@@ -200,7 +231,7 @@ is( $t[0]{name}, 'Should exit' );
 is( $t[0]{diag}, '' );
 is( $t[0]{depth}, 1 );
 
-# Exiting box
+# Exiting trap
 ($prem, @t) = run_tests
   ( sub {
       my ($t) = trap { exit };
@@ -217,7 +248,7 @@ is( $t[0]{diag}, <<'EOE' );
 EOE
 is( $t[0]{depth}, 1 );
 
-# Exiting TODO box
+# Exiting TODO trap
 ($prem, @t) = run_tests
   ( sub {
     TODO: {
@@ -241,7 +272,7 @@ is( $t[0]{type}, 'todo', 'type = todo' );
 is( $t[0]{reason}, 'Testing TODOs', 'reason' );
 
 my $really_skipped = 1;
-# Exiting SKIPPED box
+# Exiting SKIPPED trap
 ($prem, @t) = run_tests
   ( sub {
     SKIP: {

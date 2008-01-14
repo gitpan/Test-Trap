@@ -1,6 +1,6 @@
 package Test::Trap;
 
-use version; $VERSION = qv('0.0.23');
+use version; $VERSION = qv('0.1.0');
 
 use strict;
 use warnings;
@@ -11,7 +11,7 @@ use Test::Trap::Builder qw( :methods );
 my $B = Test::Trap::Builder->new;
 
 sub import {
-  my $module = shift;
+  my $trapper = shift;
   my $callpkg = caller;
   my (@function, @scalar, @layer);
   while (@_) {
@@ -20,22 +20,22 @@ sub import {
     $sym =~ s/^://               ? push @layer,    split/:/, $sym :
     $sym =~ s/^\$//              ? push @scalar,   $sym :
     $sym !~ m/^[@%*]/            ? push @function, $sym :
-    croak qq["$sym" is not exported by the $module module];
+    croak qq["$sym" is not exported by the $trapper module];
   }
   if (@function > 1) {
-    croak qq[The $module module does not export more than one function];
+    croak qq[The $trapper module does not export more than one function];
   }
   if (@scalar > 1) {
-    croak qq[The $module module does not export more than one scalar];
+    croak qq[The $trapper module does not export more than one scalar];
   }
   my $function = @function ? $function[0] : 'trap';
   my $scalar = @scalar ? $scalar[0] : 'trap';
-  @layer = $B->layer_implementation($module, default => @layer);
+  @layer = $B->layer_implementation($trapper, default => @layer);
   no strict 'refs';
   my $gref = \*{"$callpkg\::$scalar"};
-  *$gref = \ do { my $x = bless {}, $module };
+  *$gref = \ do { my $x = bless {}, $trapper };
   *{"$callpkg\::$function"} = sub (&) {
-    $B->trap($module, $gref, \@layer, shift);
+    $B->trap($trapper, $gref, \@layer, shift);
   }
 }
 
@@ -114,9 +114,8 @@ $B->layer(die => $_) for sub {
 # Layers for STDOUT and STDERR, from the factory:
 $B->output_layer( stdout => \*STDOUT );
 $B->output_layer( stderr => \*STDERR );
-$B->default_output_layer_backends( qw/ tempfile perlio / );
 BEGIN {
-  # Make availible some backends:
+  # Make available some backends:
   use Test::Trap::Builder::TempFile;
   eval q{ use Test::Trap::Builder::PerlIO }; # optional
   eval q{ use Test::Trap::Builder::SystemSafe }; # optional
@@ -144,6 +143,36 @@ $B->layer(warn => $_) for sub {
 # Pseudo-layers:
 $B->multi_layer(flow => qw/ raw die exit /);
 $B->multi_layer(default => qw/ flow stdout stderr warn /);
+
+# Non-default pseudo-layers:
+$B->layer( void => $_ ) for sub {
+  my $self = shift;
+  undef $self->{wantarray};
+  $self->Next;
+};
+$B->layer( scalar => $_ ) for sub {
+  my $self = shift;
+  $self->{wantarray} = '';
+  $self->Next;
+};
+$B->layer( list => $_ ) for sub {
+  my $self = shift;
+  $self->{wantarray} = 1;
+  $self->Next;
+};
+$B->layer( on_fail => $_ ) for sub {
+  my $self = shift;
+  my ($arg) = @_;
+  $self->Prop('Test::Trap::Builder')->{on_test_failure} = $arg;
+  $self->Next;
+};
+$B->layer( output => $_ ) for sub {
+  my $self = shift;
+  my $implementation = eval { $B->first_output_layer_backend(@_) };
+  $self->Exception($@) if $@;
+  $self->Prop('Test::Trap::Builder')->{output_backend} = $implementation;
+  $self->Next;
+};
 
 ########################
 #  Standard accessors  #
@@ -188,12 +217,12 @@ sub _test_more($) {
 
 for my $simple (qw/ is isnt like unlike /) {
   no strict 'refs';
-  $B->test( $simple => 'indexed, predicate, name', _test_more $simple );
+  $B->test( $simple => 'element, predicate, name', _test_more $simple );
 }
 
-$B->test( is_deeply => 'all, predicate, name', _test_more 'is_deeply' );
+$B->test( is_deeply => 'entirety, predicate, name', _test_more 'is_deeply' );
 
-$B->test( ok => 'object, indexed, name', $_ ) for sub {
+$B->test( ok => 'trap, element, name', $_ ) for sub {
   my $self = shift;
   my ($got, $name) = @_;
   require Test::More;
@@ -205,7 +234,7 @@ OK
   return $ok;
 };
 
-$B->test( nok => 'object, indexed, name', $_ ) for sub {
+$B->test( nok => 'trap, element, name', $_ ) for sub {
   my $self = shift;
   my ($got, $name) = @_;
   require Test::More;
@@ -228,9 +257,28 @@ sub quiet {
   }
   require Test::More;
   my $Test = Test::More->builder;
-  my $ok = $Test->ok(!@fail, $name);
-  $Test->diag(join"\n", @fail) unless $ok;
+  my $ok = $Test->ok(!@fail, $name) or do {
+    $Test->diag(join"\n", @fail);
+    $self->TestFailure;
+  };
   $ok;
+}
+
+#####################
+#  Utility methods  #
+#####################
+
+sub diag_all {
+  my $self = shift;
+  require Test::More;
+  Test::More::diag( dump $self );
+}
+
+sub diag_all_once {
+  my $self = shift;
+  my $msg = $self->Prop->{diag_all_once}++ ? '(as above)' : dump $self;
+  require Test::More;
+  Test::More::diag( $msg );
 }
 
 1; # End of Test::Trap
@@ -243,12 +291,12 @@ Test::Trap - Trap exit codes, exceptions, output, etc.
 
 =head1 VERSION
 
-Version 0.0.23
+Version 0.1.0
 
 =head1 SYNOPSIS
 
   use Test::More;
-  use Test::Trap qw( trap $trap );
+  use Test::Trap;
 
   my @r = trap { some_code(@some_parameters) };
   is ( $trap->exit, 1, 'Expecting &some_code to exit with 1' );
@@ -263,23 +311,22 @@ on steroids, configurable and extensible, but by default trapping
 return values from boxed blocks of test code.
 
 The values collected by the latest trap can then be queried or tested
-through a a special result object.
+through a a special trap object.
 
 =head1 EXPORT
 
 A function and a scalar may be exported by any name.  The function (by
 default named C<trap>) is an analogue to block eval(), and the scalar
-(by default named C<$trap>) is the corresponding analogue to B<$@>.
+(by default named C<$trap>) is the corresponding analogue to C<$@>.
 
-Optionally, you may specify the default layers for the exported trap.
-Layers may be specified by name, with a colon sigil.  Multiple layers
-may be given in a list, or just stringed together like
-C<:flow:stderr:warn>.
+Optionally, you may specify the layers of the exported trap.  Layers
+may be specified by name, with a colon sigil.  Multiple layers may be
+given in a list, or just stringed together like C<:flow:stderr:warn>.
 
 (For the advanced user, you may also specify anonymous layer
 implementations -- i.e. an appropriate subroutine.)
 
-See below for a list of the built-in layers, all of which are enabled
+See below for a list of the built-in layers, most of which are enabled
 by default.  Note, finally, that the ordering of the layers matter:
 The :raw layer is always on the bottom (anything underneath it is
 ignored), and any other "flow control" layers used should be right
@@ -291,15 +338,16 @@ down there with it.
 
 This function may be exported by any name, but defaults to C<trap>.
 
-Traps exceptions like block eval, but (by default) also traps exits
-and exit codes, returns and return values, context, and (Perl) STDOUT,
-STDERR, and warnings, All information trapped can be queried by way of
-the status object, which is by default exported as C<$trap>, but can
-be exported by any name.
+By default, traps exceptions (like block eval), but also exits and
+exit codes, returns and return values, context, and (Perl) output on
+STDOUT or STDERR, and warnings.  All information trapped can be
+queried through the trap object, which is by default exported as
+C<$trap>, but can be exported by any name.
 
 =head1 TRAP LAYERS
 
-It is possible to register more (see L<Test::Trap::Builder>), but the
+Exactly what the C<trap> traps depends on the layers of the trap.  It
+is possible to register more (see L<Test::Trap::Builder>), but the
 following layers are pre-defined by this module:
 
 =head2 :raw
@@ -331,27 +379,26 @@ Layers trapping Perl output on STDOUT and STDERR, respectively.
 =head2 :stdout(perlio), :stderr(perlio)
 
 As above, but specifying a backend implemented using PerlIO::scalar.
-If this backend is not availible (typically if PerlIO is not), this is
+If this backend is not available (typically if PerlIO is not), this is
 an error.
 
 =head2 :stdout(tempfile), :stderr(tempfile)
 
 As above, but specifying a backend implemented using File::Temp.  Note
-that this is the default implementation, whenever it is availible, so
-the only effect of specifying it, is that if it is not availible, it
-will fail, rather than fall back on another implementation.
+that this is the default implementation, unless the C<:output()> layer
+is used to set another default.
 
 =head2 :stdout(a;b;c), :stderr(a,b,c)
 
 (Either syntax, commas or semicolons, is permitted, as is any number
 of names in the list.)  As above, but specifying the backend
 implementation by the first existing name among I<a>, I<b>, and I<c>.
-If no such implementation is availible, this is an error.
+If no such implementation is available, this is an error.
 
 =head2 :warn
 
-A layer trapping warnings, with additionally tee: If STDERR is open,
-it will also print the warnings there.  (This output may be trapped by
+A layer trapping warnings, with additional tee: If STDERR is open, it
+will also print the warnings there.  (This output may be trapped by
 the :stderr layer, be it above or below the :warn layer.)
 
 =head2 :default
@@ -363,54 +410,92 @@ every trap starts with:  In order not to include any of the six layers
 that make up :default, you need to push a terminating layer (such as
 :raw or :flow) on the trap.
 
+=head2 :on_fail(m)
+
+A (non-default) pseudo-layer that installs a callback method (by name)
+I<m> to be run on test failures.  To run the L</"diag_all"> method
+every time a test fails:
+
+  use Test::Trap qw/ :on_fail(diag_all) /;
+
+=head2 :void, :scalar, :list
+
+Runs the trapped user code in void, scalar, or list context,
+respectively.  (By default, the code is run in whatever context the
+trap itself is in.)
+
+If more than one of these layers are pushed on the trap, the deepest
+(that is, leftmost) takes precedence:
+
+  use Test::Trap qw/ :scalar:void:list /;
+  trap { 42, 13 };
+  $trap->return_is_deeply( [ 13 ], 'Scalar comma.' );
+
+=head2 :output(a;b;c)
+
+A (non-default) pseudo-layers that sets the default backend layer
+implementation for any output trapping (C<:stdout>, C<:stderr>, or
+other similarly defined) layers already on the trap.
+
+  use Test::Trap qw/ :output(systemsafe) /;
+  trap { system echo => 'Hello Unix!' }; # trapped!
+
 =head1 RESULT ACCESSORS
 
-The following methods may be called on the result objects after any
-trap has been sprung, and access the cooked results of the run.
+The following methods may be called on the trap objects after any trap
+has been sprung, and access the outcome of the run.
 
 Any property will be undef if not actually trapped -- whether because
 there is no layer to trap them or because flow control passed them by.
 (If there is an active and successful trap layer, empty strings and
 empty arrays trapped will of course be defined.)
 
+When properties are set, their values will be as follows:
+
 =head2 leaveby
 
-Returns a string indicating how the trap terminated: C<return>,
-C<die>, or C<exit>.
+A string indicating how the trap terminated: C<return>, C<die>, or
+C<exit>.
 
 =head2 die
 
-Returns the exception, if the latest trap threw one.
+The exception, if the latest trap threw one.
 
 =head2 exit
 
-Returns the exit code, if the latest trap tried to exit.
+The exit code, if the latest trap tried to exit.
 
 =head2 return
 
-Returns an arrayref of return values, if the latest trap returned.
+An arrayref of return values, if the latest trap returned.
+
+Note: The arrayref will hold but a single value if the trap was sprung
+in scalar context, and will be empty if it was in void context.
 
 =head2 stdout, stderr
 
-Returns the captured output on the respective file handles.
+The captured output on the respective file handles.
 
 =head2 warn
 
-Returns an arrayref of warnings from the latest trap.
+An arrayref of warnings from the latest trap.
 
 =head2 wantarray
 
-Returns the context in which the latest trap was called.
+The context in which the latest code trapped was called.  (By default
+a propagated context, but layers can override this.)
 
 =head2 list, scalar, void
 
-True if the latest trap was called in the indicated context.
+True if the latest code trapped was called in the indicated context.
+(By default the code will be called in a propagated context, but
+layers can override this.)
 
 =head1 RESULT TESTS
 
 For each accessor, a number of convenient standard test methods are
-also availible.  By default, these are a few standard tests from
-Test::More, plus the C<nok> test, being a negated C<ok> test.  All for
+also available.  By default, these are a few standard tests from
+Test::More, plus the C<nok> test (a negated C<ok> test).  All for
 convenience:
 
 =head2 I<ACCESSOR>_ok        [INDEX,] TEST_NAME
@@ -432,9 +517,10 @@ C<return> and C<warn>), and disallowed for scalar accessors.  Note
 that the C<is_deeply> test does not accept an index.  Even for array
 accessors, it operates on the entire array.
 
-For convenience, again, a flow control I<ACCESSOR> (C<return>, C<die>,
-C<exit>) will first test whether the trap was left by way of the flow
-control mechanism in question.
+For convenience and clarity, tests against a flow control I<ACCESSOR>
+(C<return>, C<die>, C<exit>, or any you define yourself) will first
+test whether the trap was left by way of the flow control mechanism in
+question, and fail with appropriate diagnostic otherwise.
 
 =head2 did_die, did_exit, did_return
 
@@ -446,6 +532,23 @@ but with better diagnostics.
 
 Convenience: Passes if zero-length output was trapped on both STDOUT
 and STDERR, and generate better diagnostics otherwise.
+
+=head1 UTILITIES
+
+=head2 diag_all
+
+Prints a diagnostic message (as per L<Test::More/"diag">) consisting
+of a dump (in Perl code, as per L<Data::Dump>) of the trap object.
+
+=head2 diag_all_once
+
+As L<"diag_all">, except if this instance of the trap object has
+already been diag_all_once'd, the diagnostic message will instead
+consist of the string C<(as above)>.
+
+This could be useful with the C<on_fail> layer:
+
+  use Test::Trap qw/ :on_fail(diag_all_once) /;
 
 =head1 CAVEATS
 
@@ -484,10 +587,6 @@ Threads?  No idea.  It might even work correctly.
 
 =head1 BUGS
 
-On Windows, fork() within a trap appears to crash perl.  (This is a
-TODO:  I'm not sure if this can be remedied, but the least we can do
-is fail more nicely.)
-
 Please report any bugs or feature requests directly to the author.
 
 =head1 AUTHOR
@@ -496,7 +595,7 @@ Eirik Berg Hanssen, C<< <ebhanssen@allverden.no> >>
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2006-2007 Eirik Berg Hanssen, All Rights Reserved.
+Copyright 2006-2008 Eirik Berg Hanssen, All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

@@ -1,6 +1,6 @@
 #!perl -T
 # -*- mode: cperl ; compile-command: "cd .. ; ./Build ; prove -vb t/07-*.t" -*-
-use Test::More tests => 9 + 5*18;
+use Test::More tests => 8 + 5*18;
 use strict;
 use warnings;
 
@@ -26,7 +26,7 @@ BEGIN {
 			},
 		      },
 		    );
-  $Builder->test( can => 'indexed, predicate, name', $_ ) for sub {
+  $Builder->test( can => 'element, predicate, name', $_ ) for sub {
     my ($got, $methods) = @_;
     @_ = ($got, @$methods);
     goto &Test::More::can_ok;
@@ -107,21 +107,8 @@ BEGIN {
     $Builder->multi_layer( trouble => qw( warn no_such_layer ) );
   };
   like( $trap->die,
-	qr/^\QUnknown trapper layer "no_such_layer" at ${\__FILE__} line/,
+	qr/^\QUnknown trap layer "no_such_layer" at ${\__FILE__} line/,
 	'Bad definition: unknown layer',
-      );
-}
-
-BEGIN {
-  trap {
-    package TT::badclass2;
-    use base 'Test::Trap';
-    $Builder->default_output_layer_backends(); # none!
-    $Builder->multi_layer( default => qw( flow stdout stderr warn ) );
-  };
-  like( $trap->die,
-	qr/^\QNo default backend and none specified for :stdout at ${\__FILE__} line/,
-	'Bad definition: no backend for :stdout',
       );
 }
 
@@ -208,7 +195,7 @@ sub isan_AB {
   ok( $$handle->can('argv_fail'),      "$name: argv_fail method present" );
   ok( $$handle->can('leavewith_fail'), "$name: leavewith_fail method present" );
 TODO: {
-    local $TODO = 'Diamond inheritance still incomplete';
+    local $TODO = 'Multiple inheritance still incomplete';
     ok( $$handle->can('leavewith_can'),  "$name: leavewith_fail method present" );
   }
 }

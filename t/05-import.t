@@ -28,7 +28,7 @@ like( $@,
 
 eval { Test::Trap->import(qw( :no_such_layer )) };
 like( $@,
-      qr/^\QUnknown trapper layer "no_such_layer" at ${\__FILE__} line/,
+      qr/^\QUnknown trap layer "no_such_layer" at ${\__FILE__} line/,
       'Export of an unknown layer',
     );
 

@@ -1,6 +1,6 @@
 package Test::Trap::Builder::SystemSafe;
 
-use version; $VERSION = qv('0.0.7');
+use version; $VERSION = qv('0.1.0');
 
 use strict;
 use warnings;
@@ -9,15 +9,14 @@ use File::Temp qw( tempfile );
 use IO::Handle;
 
 sub import {
-  my $builder = Test::Trap::Builder->new;
-  $builder->output_layer_backend( systemsafe => $_ ) for sub {
+  Test::Trap::Builder->output_layer_backend( systemsafe => $_ ) for sub {
     my $self = shift;
     my ($name, $fileno, $globref) = @_;
     my $pid = $$;
     if (tied *$globref or $fileno < 0) {
       $self->Exception("SystemSafe only works with real file descriptors; aborting");
     }
-    my ($fh, $file) = tempfile; # XXX: Test?
+    my ($fh, $file) = tempfile( UNLINK => 1 ); # XXX: Test?
     binmode $fh; # superfluos?
     open my $fh_keeper, ">&$fileno"
       or $self->Exception("Cannot dup '$fileno' for $name: '$!'");
@@ -87,7 +86,7 @@ Test::Trap::Builder::SystemSafe - "Safe" output layer backend using File::Temp
 
 =head1 VERSION
 
-Version 0.0.7
+Version 0.1.0
 
 =head1 DESCRIPTION
 
@@ -133,7 +132,7 @@ Eirik Berg Hanssen, C<< <ebhanssen@allverden.no> >>
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2006-2007 Eirik Berg Hanssen, All Rights Reserved.
+Copyright 2006-2008 Eirik Berg Hanssen, All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

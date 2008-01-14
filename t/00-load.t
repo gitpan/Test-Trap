@@ -11,7 +11,7 @@ SKIP: {
     use_ok( 'Test::Trap::Builder::PerlIO' );
   }
   use_ok( 'Test::Trap::Builder' );
-  use_ok( 'Test::Trap' );
+  use_ok( 'Test::Trap' ) or BAIL_OUT( "Nothing to test without the Test::Trap class" );
 }
 
 diag( "Testing Test::Trap $Test::Trap::VERSION, Perl $], $^X" );

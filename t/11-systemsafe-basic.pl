@@ -109,7 +109,8 @@ trap {
       system @args and die "system @args failed with $?";
       exit 1;
     };
-    is( $T->exit, 1, "$desc: exit(1)" );
+    is( $T->exit, 1, "$desc: exit(1)" )
+      or $T->diag_all;
     is( $T->stdout, $EXPECT, "$desc: system() STDOUT" );
     is( $T->stderr, "0123456789Warning\n", "$desc: system() STDERR" );
     is( join("\n", @{$T->warn}), '', "$desc: No warnings" );
