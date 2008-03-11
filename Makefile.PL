@@ -17,7 +17,7 @@ WriteMakefile
                            'warnings' => 0,
                            'base' => 0,
                            'version' => 0,
-                           'Test::Tester' => 0,
+                           'Test::Tester' => '0.107',
                            'constant' => 0,
                            'Exporter' => 0,
                            'Carp' => 0,

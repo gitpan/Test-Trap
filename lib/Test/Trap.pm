@@ -1,6 +1,6 @@
 package Test::Trap;
 
-use version; $VERSION = qv('0.1.0');
+use version; $VERSION = qv('0.1.1');
 
 use strict;
 use warnings;
@@ -207,6 +207,11 @@ $B->accessor( is_array => 1,
 #  Standard tests  #
 ####################
 
+# This helper and similar strategies below delay loading Test::More
+# until we actually use this stuff, so that It Just Works if we:
+#     0) have already loaded and planned with Test::More ;-)
+#     1) have already loaded and planned with some other Test::Builder module
+#     2) aren't actually testing, just trapping
 sub _test_more($) {
   my $sym = shift;
   sub {
@@ -215,8 +220,7 @@ sub _test_more($) {
   };
 }
 
-for my $simple (qw/ is isnt like unlike /) {
-  no strict 'refs';
+for my $simple (qw/ is isnt like unlike isa_ok /) {
   $B->test( $simple => 'element, predicate, name', _test_more $simple );
 }
 
@@ -291,7 +295,7 @@ Test::Trap - Trap exit codes, exceptions, output, etc.
 
 =head1 VERSION
 
-Version 0.1.0
+Version 0.1.1
 
 =head1 SYNOPSIS
 
@@ -465,20 +469,60 @@ The exception, if the latest trap threw one.
 
 The exit code, if the latest trap tried to exit.
 
-=head2 return
+=head2 return [INDEX ...]
 
-An arrayref of return values, if the latest trap returned.
+Returns undef if the latest trap did not terminate with a return;
+otherwise returns three different views of the return array:
 
-Note: The arrayref will hold but a single value if the trap was sprung
-in scalar context, and will be empty if it was in void context.
+=over
+
+=item
+
+if no I<INDEX> is passed, returns a reference to the array (NB! an
+empty array of indices qualifies as "no index")
+
+=item
+
+if called with at least one I<INDEX> in scalar context, returns the
+array element indexed by the first I<INDEX> (ignoring the rest)
+
+=item
+
+if called with at least one I<INDEX> in list context, returns the
+slice of the array by these indices
+
+=back
+
+Note: The array will hold but a single value if the trap was sprung in
+scalar context, and will be empty if it was in void context.
 
 =head2 stdout, stderr
 
 The captured output on the respective file handles.
 
-=head2 warn
+=head2 warn [INDEX]
 
-An arrayref of warnings from the latest trap.
+Returns undef if the latest trap had no warning-trapping layer;
+otherwise returns three different views of the warn array:
+
+=over
+
+=item
+
+if no I<INDEX> is passed, returns a reference to the array (NB! an
+empty array of indices qualifies as "no index")
+
+=item
+
+if called with at least one I<INDEX> in scalar context, returns the
+array element indexed by the first I<INDEX> (ignoring the rest)
+
+=item
+
+if called with at least one I<INDEX> in list context, returns the
+slice of the array by these indices
+
+=back
 
 =head2 wantarray
 
@@ -506,6 +550,8 @@ convenience:
 
 =head2 I<ACCESSOR>_isnt      [INDEX,] SCALAR, TEST_NAME
 
+=head2 I<ACCESSOR>_isa_ok    [INDEX,] SCALAR, INVOCANT_NAME
+
 =head2 I<ACCESSOR>_like      [INDEX,] REGEX, TEST_NAME
 
 =head2 I<ACCESSOR>_unlike    [INDEX,] REGEX, TEST_NAME
@@ -520,13 +566,13 @@ accessors, it operates on the entire array.
 For convenience and clarity, tests against a flow control I<ACCESSOR>
 (C<return>, C<die>, C<exit>, or any you define yourself) will first
 test whether the trap was left by way of the flow control mechanism in
-question, and fail with appropriate diagnostic otherwise.
+question, and fail with appropriate diagnostics otherwise.
 
 =head2 did_die, did_exit, did_return
 
 Conveniences: Tests whether the trap was left by way of the flow
 control mechanism in question.  Much like C<leaveby_is('die')> etc,
-but with better diagnostics.
+but with better diagnostics and (run-time) spell checking.
 
 =head2 quiet
 

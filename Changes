@@ -1,5 +1,31 @@
 Revision history for Test-Trap
 
+0.1.1	Tue Mar 11 20:08:31 CET 2008
+	Documentation:
+	 - document the indexing/slicing of ->return and ->warn;
+	 - smaller tweaks;
+	 - new methods *_isa_ok;
+	Test::Trap:
+	 - usage patterns clearly indicate we need *_isa_ok tests: a
+	   $trap->did_return w/BAIL_OUT followed by an
+	   isa_ok($trap->return(0)) w/BAIL_OUT must constitute the
+	   clearest test-trap anti-pattern since C<() = trap {...}>;
+	 - note: *_can_ok is still out, since it does not take any
+	   kind of name, and the TTB interface still expects a name;
+	Tests:
+	 - subclass Pod::Coverage so that it treats the functions
+	   "imported" from Test::Trap::Builder as though they were
+	   native, not imported, to the package we're testing;
+	 - update t/pod-coverage.t to ignore the latest methods and
+	   functions somehow documented: layer:*, *_isa_ok, Next,
+	   Prop, Run, etc;
+	 - prevent t/99-coverage.t exiting with code 8 on success, now
+	   that Test-Simple actually catches that stuff;
+	Build:
+	 - up the Test::Tester dependency to 0.107 -- I don't know
+	   what broke t/10-tester.t; I don't think it was anything of
+	   mine -- but upgrading Test::Tester fixed it.
+
 0.1.0	Mon Jan 14 18:31:09 CET 2008
 	Overall:
 	 - Continuing to fix small stuff, but also beginning to mess

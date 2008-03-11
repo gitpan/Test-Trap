@@ -34,7 +34,8 @@ my $early_exit = 1;
 END {
   ok( $early_exit, 'Failing to raise an exception: Early exit' );
   is( $?, 8, 'Exiting with exit code 8' );
-  # let Test::More handle the exit code from here.
+  # let Test::More handle exit codes different from 8:
+  $? = 0 if $? == 8;
 }
 $trap->Exception("Failing");
 undef $early_exit;

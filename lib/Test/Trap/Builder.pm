@@ -1,6 +1,6 @@
 package Test::Trap::Builder;
 
-use version; $VERSION = qv('0.1.0');
+use version; $VERSION = qv('0.1.1');
 
 use strict;
 use warnings;
@@ -272,7 +272,7 @@ BEGIN { # Layer registration:
     my $name = shift;
     my $callpkg = caller;
     my @layer = $self->layer_implementation($callpkg, @_);
-    $export_layer->(scalar caller, $name, sub { @layer });
+    $export_layer->($callpkg, $name, sub { @layer });
   }
 
   sub output_layer {
@@ -357,7 +357,7 @@ Test::Trap::Builder - Backend for building test traps
 
 =head1 VERSION
 
-Version 0.1.0
+Version 0.1.1
 
 =head1 SYNOPSIS
 
@@ -673,7 +673,7 @@ arguments.
 =item predicate
 
 What the I<ACCESSOR>'s return value should be tested against (taken
-from the test method's arguments).  (There may be any number of
+from the test method's arguments).  (There may be any fixed number of
 predicates.)
 
 =item name
