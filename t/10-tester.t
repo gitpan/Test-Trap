@@ -89,6 +89,10 @@ is( $t[0]{name}, 'Exit with false value' );
 is( $t[0]{diag}, '' );
 is( $t[0]{depth}, 1 );
 
+# Capture some TB version dependent stuff:
+($prem, @t) = run_tests sub { isnt 5, 5 };
+my $diag5isnt5 = $t[0]{diag};
+
 # Trap with print, and exit 5, and diag_all_once
 ($prem, @t) = run_tests
   ( sub {
@@ -110,12 +114,7 @@ is( $t[0]{depth}, 1 );
 is( $t[1]{ok}, 0, '->exit_isnt');
 is( $t[1]{actual_ok}, 0 );
 is( $t[1]{name}, 'Exit with non-5 value' );
-is( $t[1]{diag}, <<'EOE' );
-    '5'
-        ne
-    '5'
-(as above)
-EOE
+is( $t[1]{diag}, "$diag5isnt5(as above)\n" );
 is( $t[1]{depth}, 1 );
 
 # Trap with multiple return values and diag_all_once

@@ -53,7 +53,7 @@ sub runtests(&@) { # runs the trap and performs 6 tests
   print STDERR $n or diagdie "Cannot print on STDERR!";
   STDERR->flush or diagdie "Cannot flush STDERR!";
   $noise .= "$n$n";
-  $warn = do { local $" = "[^\0]*\0"; qr/\A@$warn[^\0]*\z/ };
+  $warn = do { local $" = "[^`]*`"; qr/\A@$warn[^`]*\z/ };
   my @r = eval { &trap($code) }; # bypass prototype
   my $e = $@;
 SKIP: {
@@ -62,7 +62,7 @@ SKIP: {
       skip "$desc: Internal exception -- bad state", 5;
     };
     is_deeply( $T->return, $return, "$desc: Return" );
-    like( join("\0", @{$T->warn}), $warn, "$desc: Warnings" );
+    like( join("`", @{$T->warn}), $warn, "$desc: Warnings" );
     is( $T->stdout, $stdout, "$desc: STDOUT" );
     like( $T->stderr, $stderr, "$desc: STDERR" );
     is( stderr, $noise, ' -- no uncaptured STDERR -- ' );
@@ -72,12 +72,12 @@ SKIP: {
 my $inner_trap;
 sub inner_tests(@) { # performs 5 tests
   my($return, $warn, $stdout, $stderr, $desc) = @_;
-  $warn = do { local $" = "[^\0]*\0"; qr/\A@$warn[^\0]*\z/ };
+  $warn = do { local $" = "[^`]*`"; qr/\A@$warn[^`]*\z/ };
 SKIP: {
     ok(eval{$inner_trap->isa('Test::Trap')}, "$desc: The object" )
       or skip 'No inner trap object!', 4;
     is_deeply( $inner_trap->return, $return, "$desc: Return" );
-    like( join("\0", @{$inner_trap->warn}), $warn, "$desc: Warnings" );
+    like( join("`", @{$inner_trap->warn}), $warn, "$desc: Warnings" );
     is( $inner_trap->stdout, $stdout, "$desc: STDOUT" );
     like( $inner_trap->stderr, $stderr, "$desc: STDERR" );
   }

@@ -22,7 +22,7 @@ my $builder = Module::Build->new
       'Test::Builder'     => 0,
       'Test::More'        => 0,
       'Test::Tester'      => 0.107,   # fails with at least some earlier ones
-      'perl'              => '5.6.0', # certainly 5.6.2 ...
+      'perl'              => '5.6.2',
       'version'           => 0,
       'warnings'          => 0,
     },

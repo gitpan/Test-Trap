@@ -1,6 +1,6 @@
 package Test::Trap;
 
-use version; $VERSION = qv('0.1.1');
+use version; $VERSION = qv('0.1.2');
 
 use strict;
 use warnings;
@@ -295,7 +295,7 @@ Test::Trap - Trap exit codes, exceptions, output, etc.
 
 =head1 VERSION
 
-Version 0.1.1
+Version 0.1.2
 
 =head1 SYNOPSIS
 
