@@ -42,7 +42,7 @@ $ENV{PATH} = '';
 $ENV{ENV} = '';
 $ENV{BASH_ENV} = '';
 
-my ($PERL) = $^X =~ /^([\w.\/:\\-]+)$/;
+my ($PERL) = $^X =~ /^([\w.\/:\\~-]+)$/;
 if ($PERL) {
   plan tests => 3 + 6*6 + 4;
 }

@@ -1,6 +1,6 @@
 package Test::Trap;
 
-use version; $VERSION = qv('0.1.2');
+use version; $VERSION = qv('0.2.0');
 
 use strict;
 use warnings;
@@ -127,14 +127,20 @@ $B->layer(warn => $_) for sub {
   my @warn;
   # Can't local($SIG{__WARN__}) because of a perl bug with local() on
   # scalar values under the Windows fork() emulation -- work around:
-  my %sig = %SIG;
-  defined $sig{$_} or delete $sig{$_} for keys %sig;
-  local %SIG;
-  %SIG = %sig;
+  my $sigwarn = $SIG{__WARN__};
+  my $sigwarn_exists = exists $SIG{__WARN__};
   $SIG{__WARN__} = sub {
     my $w = shift;
     push @warn, $w;
     print STDERR $w if defined fileno STDERR;
+  };
+  $self->Teardown($_) for sub {
+    if ($sigwarn_exists) {
+      $SIG{__WARN__} = $sigwarn;
+    }
+    else {
+      delete $SIG{__WARN__};
+    }
   };
   $self->{warn} = \@warn;
   $self->Next;
@@ -295,7 +301,7 @@ Test::Trap - Trap exit codes, exceptions, output, etc.
 
 =head1 VERSION
 
-Version 0.1.2
+Version 0.2.0
 
 =head1 SYNOPSIS
 

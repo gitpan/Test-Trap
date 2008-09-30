@@ -13,7 +13,7 @@ BEGIN {
   local $@;
   eval qq{ use $pkg };
   if (exists &{"$pkg\::import"}) {
-    plan tests => 1 + 6*10 + 5*3; # 10 runtests; 3 inner_tests
+    plan tests => 1 + 6*10 + 5*3 + 1; # 10 runtests; 3 inner_tests
   }
   else {
     plan skip_all => "$backend backend not supported; skipping";
@@ -21,9 +21,13 @@ BEGIN {
 }
 
 # This is an ugly bunch of tests, but for regression's sake, I'll
-# leave it as-is.  The problem is that warn() (or rather, the default
-# __WARN__ handler) will print on the previous STDERR if the current
-# STDERR is closed.
+# leave it as-is.
+
+# One problem is that warn() (or rather, the default __WARN__ handler)
+# will print on the previous STDERR if the current STDERR is closed.
+
+# Another problem is that the __WARN__ handler has not always been
+# properly restored on exit from a trap.  Ouch.
 
 BEGIN {
   use_ok( 'Test::Trap', '$T', lc ":flow:stdout($backend):stderr($backend):warn" );
@@ -36,6 +40,7 @@ STDERR: {
   STDERR->autoflush(1);
   print STDOUT '';
   sub stderr () { local $/; no warnings 'io'; local *ERR; open ERR, '<', $errname or die; <ERR> }
+  END { close STDERR; close $errfh }
 }
 
 sub diagdie {
@@ -109,10 +114,16 @@ runtests { close STDERR; warn "Testing stderr trapping\n"; 5 }
   '', qr/\A\z/,
   'warn() with closed STDERR';
 
-runtests { my @r = trap { warn "Testing stderr trapping\n"; 5 }; $inner_trap = $T; @r}
-  [5], [],
-  '', qr/\A\z/,
-  'warn() in inner trap';
+runtests {
+  warn "Outer 1st\n";
+  my @r = trap { warn "Testing stderr trapping\n"; 5 };
+  binmode(STDERR); # XXX: masks a real weakness -- we do not simply restore the original!
+  $inner_trap = $T;
+  warn "Outer 2nd\n";
+  @r
+} [5], [ qr/Outer 1st/, qr/Outer 2nd/ ],
+  '', qr/^Outer 1st\nOuter 2nd$/,
+  'warn() in both traps';
 inner_tests
   [5], [ qr/^Testing stderr trapping$/ ],
   '', qr/^Testing stderr trapping$/,
@@ -128,7 +139,7 @@ runtests { close STDOUT; print "Testing stdout trapping\n"; 6 }
   '', qr/^print\Q() on closed filehandle STDOUT at /,
   'print() with closed STDOUT';
 
-runtests { close STDOUT; my @r = trap { print "Testing stdout trapping\n"; (5,6)}; $inner_trap = $T; @r }
+runtests { close STDOUT; my @r = trap { print "Testing stdout trapping\n"; (5,6) }; $inner_trap = $T; @r }
   [5, 6], [],
   '', qr/\A\z/,
   'print() in inner trap with closed STDOUT';
@@ -145,5 +156,12 @@ inner_tests
   [2], [ qr/^Testing stderr trapping$/ ],
   '', qr/\A\z/,
   ' -- the inner trap -- warn() with closed STDERR';
+
+# regression test for the ', <$fh> line 1.' bug:
+trap {
+    trap {};
+    warn "no newline";
+};
+unlike $T->stderr, qr/, \S+ line 1\./, 'No "<$f> line ..." stuff, please';
 
 1;

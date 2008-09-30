@@ -31,5 +31,5 @@ t/11-systemsafe-basic.pl
 t/12-systemsafe-errors.t
 t/13-regressions.t
 t/99-coverage.t
-t/pod-coverage.t
-t/pod.t
+xt/author/pod-coverage.t
+xt/author/pod.t

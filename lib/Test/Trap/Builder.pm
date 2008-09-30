@@ -1,6 +1,6 @@
 package Test::Trap::Builder;
 
-use version; $VERSION = qv('0.1.2');
+use version; $VERSION = qv('0.2.0');
 
 use strict;
 use warnings;
@@ -20,19 +20,22 @@ my $builder = bless {};
 
 # Methods on the trap object ... basically a trap object "base class":
 
-{
+BEGIN {
   my %Prop;
+  my $prefix = "$^T/$$/";
+  my $counter;
 
   sub DESTROY {
     my $self = shift;
-    delete $Prop{$self};
+    delete $Prop{ $self->{' id '} || '' };
   }
 
   sub Prop {
     my $self = shift;
     my ($package) = @_;
     $package = caller unless $package;
-    return $Prop{$self}{$package}||={};
+    $self->{' id '} = $prefix . ++$counter unless $self->{' id '};
+    return $Prop{$self->{' id '}}{$package} ||= {};
   }
 
   sub Next { goto &{ pop @{$_[0]->Prop->{layers}} } }
@@ -81,9 +84,15 @@ TEST_TRAP_BUILDER_INTERNAL_EXCEPTION: {
     $trap->Prop->{code}     = $code;
     $trap->Prop->{layers}   = [@$layers];
     $trap->Prop->{teardown} = [];
-    my @e = eval { $trap->Next; 1 } ? () : "Rethrowing internal exception: $@";
-    push @e, map { eval { $_->(); 1 } ? () : "Rethrowing teardown exception: $@" } reverse @{$trap->Prop->{teardown}};
-    @e and $trap->Exception(@e);
+  TEST_TRAP_BUILDER_INTERNAL_EXCEPTION: {
+      eval { $trap->Next; 1} or $trap->Exception("Rethrowing internal exception: $@");
+    }
+    for (reverse @{$trap->Prop->{teardown}}) {
+    TEST_TRAP_BUILDER_INTERNAL_EXCEPTION: {
+	eval { $_->(); 1} or $trap->Exception("Rethrowing teardown exception: $@");
+      }
+    }
+    last if @{$trap->Prop->{exception}||[]};
     ${*$glob} = $trap;
     my @return = eval { @{$trap->return} };
     return $wantarray ? @return : $return[0];
@@ -357,7 +366,7 @@ Test::Trap::Builder - Backend for building test traps
 
 =head1 VERSION
 
-Version 0.1.2
+Version 0.2.0
 
 =head1 SYNOPSIS
 

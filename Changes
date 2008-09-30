@@ -1,5 +1,49 @@
 Revision history for Test-Trap
 
+0.2.0	Tue Sep 30 04:28:30 CEST 2008
+	Test::Trap::Builder::SystemSafe:
+	 - add explicit close()s, as it seems various files otherwise
+           remain open for too long;
+	 - register the teardown sub as soon as we have a tempfile, so
+           that we'll close it in teardown even if internal exceptions
+           are raised;
+	Test::Trap::Builder::Tempfile:
+	 - added an explicit close($fh), as it seems it otherwise
+           remains open for too long;
+	 - register the teardown sub as soon as we have a tempfile, so
+           that we'll close it in teardown even if internal exceptions
+           are raised;
+	Test::Trap::Builder:
+	 - add an ' id ' member to the object, for use with tag-on
+           properties, as the ref stringification does not survive a
+           pseudo-fork (inside-out objects are *hard*);
+	 - make sure all registered teardowns are called, even after
+           one or more internal exceptions;
+	Test::Trap:
+	 - use a different workaround (by way of Teardown) for
+           $SIG{__WARN__} temporary value, as it seems local %SIG does
+           not restore the previous value or lack thereof upon scope
+           exit (may perlbug that one);
+	Tests:
+	 - add a regression test for $SIG{__WARN__} restoration to
+           t/03-files.pl;
+	 - add a regression test for the ", <$fh> line 1." bug to
+           t/03-files.pl;
+	 - t/03-files.pl and t/06-layers.t: add necessary close()s and
+           local *FH to make sure all files are closed before exiting
+           (as otherwise, tempfiles are not being cleaned on windows);
+	 - added "~" to the characters accepted in the $^X path, for
+           t/11-systemsafe-basic.pl;
+	 - reorganize: move "unnumbered" tests to xt/author;
+	Build:
+	 - bump the minor version number, in response to the internal
+           changes in Test::Trap::Builder;
+	 - don't list Config as a prereq, as that seems to mess up
+           CPANPLUS(?) installations;
+	 - updated MANIFEST, MANIFEST.SKIP, and Build.PL (adding
+           ACTION_authortest) in accordance with the above test
+           reorganization.
+
 0.1.2	Fri Sep 12 17:30:42 CEST 2008
 	Test::Trap::Builder::TempFile:
 	 - use *$globref, not $globref directly -- I have no idea why

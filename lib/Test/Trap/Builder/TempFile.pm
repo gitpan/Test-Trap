@@ -1,6 +1,6 @@
 package Test::Trap::Builder::TempFile;
 
-use version; $VERSION = qv('0.1.2');
+use version; $VERSION = qv('0.2.0');
 
 use strict;
 use warnings;
@@ -14,6 +14,13 @@ sub import {
     my ($name, $fileno, $globref) = @_;
     my $pid = $$;
     my ($fh, $file) = tempfile( UNLINK => 1 ); # XXX: Test?
+    $self->Teardown($_) for sub {
+      # if the file is opened by some other process, that one should deal with it:
+      return unless $pid == $$;
+      local $/;
+      $self->{$name} .= <$fh>;
+      close $fh;
+    };
     binmode $fh; # superfluos?
     local *$globref;
     {
@@ -22,12 +29,6 @@ sub import {
     }
     binmode *$globref; # must write as we read.
     *$globref->autoflush(1);
-    $self->Teardown($_) for sub {
-      # if the file is opened by some other process, that one should deal with it:
-      return unless $pid == $$;
-      local $/;
-      $self->{$name} .= <$fh>;
-    };
     $self->Next;
   };
 }
@@ -42,7 +43,7 @@ Test::Trap::Builder::TempFile - Output layer backend using File::Temp
 
 =head1 VERSION
 
-Version 0.1.2
+Version 0.2.0
 
 =head1 DESCRIPTION
 
