@@ -1,6 +1,6 @@
 ---
 name: Test-Trap
-version: 0.2.0
+version: v0.2.1
 author:
   - 'Eirik Berg Hanssen <Eirik-Berg.Hanssen@allverden.no>'
 abstract: 'Trap exit codes, exceptions, output, etc.'
@@ -19,27 +19,29 @@ requires:
   base: 0
   constant: 0
   lib: 0
-  perl: 5.6.2
+  perl: v5.6.2
   strict: 0
   version: 0
   warnings: 0
+configure_requires:
+  Module::Build: 0.35
 provides:
   Test::Trap:
     file: lib/Test/Trap.pm
-    version: 0.2.0
+    version: v0.2.1
   Test::Trap::Builder:
     file: lib/Test/Trap/Builder.pm
-    version: 0.2.0
+    version: v0.2.1
   Test::Trap::Builder::PerlIO:
     file: lib/Test/Trap/Builder/PerlIO.pm
-    version: 0.2.0
+    version: v0.2.1
   Test::Trap::Builder::SystemSafe:
     file: lib/Test/Trap/Builder/SystemSafe.pm
-    version: 0.2.0
+    version: v0.2.1
   Test::Trap::Builder::TempFile:
     file: lib/Test/Trap/Builder/TempFile.pm
-    version: 0.2.0
-generated_by: Module::Build version 0.280801
+    version: v0.2.1
+generated_by: Module::Build version 0.35
 meta-spec:
-  url: http://module-build.sourceforge.net/META-spec-v1.2.html
-  version: 1.2
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4

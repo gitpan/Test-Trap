@@ -1,5 +1,7 @@
 #!perl -T
 # -*- mode: cperl ; compile-command: "cd .. ; ./Build ; prove -vb t/01-*.t" -*-
+
+BEGIN { $_ = defined && /(.*)/ && $1 for @ENV{qw/ TMPDIR TEMP TMP /} } # taint vs tempfile
 use Test::More tests => 2 + 8*9;
 use strict;
 use warnings;

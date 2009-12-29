@@ -1,8 +1,72 @@
 #!perl
 # -*- mode: cperl ; compile-command: "cd .. ; ./Build ; prove -vb t/11-*.t" -*-
+use strict;
+use warnings;
+
+use Config;
+
+my $code  = '';
+my $flags = '';
+
+# Thank you, http://search.cpan.org/src/DAGOLDEN/Class-InsideOut-1.02/t/05_forking.t
+
+# If Win32, fork() is done with threads, so we need various things
+if ( $^O =~ /^(?:MSWin32|NetWare|WinCE)\z/ ) {
+
+  $code .= <<'COVERAGE';
+# don't run this at all under Devel::Cover
+if ( $ENV{HARNESS_PERL_SWITCHES} &&
+     $ENV{HARNESS_PERL_SWITCHES} =~ /Devel::Cover/ ) {
+  plan skip_all => 'Devel::Cover not compatible with Win32 pseudo-fork';
+}
+COVERAGE
+
+  # skip if threads not available for some reasons
+  if ( ! $Config{useithreads} ) {
+    $code .= <<NOTHREADS;
+plan skip_all => "Win32 fork() support requires threads";
+NOTHREADS
+  }
+
+  # skip if perl < 5.8
+  if ( $] < 5.008 ) {
+    $code .= <<NOTHREADS;
+plan skip_all => "Win32 fork() support requires perl 5.8";
+NOTHREADS
+  }
+}
+elsif (!$Config{d_fork}) {
+  $code .= <<NOFORK;
+plan skip_all => 'Fork tests are irrelevant without fork()';
+NOFORK
+}
+else {
+  $flags = ' -T';
+  $code .= <<DIAG
+BEGIN {
+  diag('Real fork; taint checks enabled');
+}
+DIAG
+}
+
+(my $file = __FILE__) =~ s/\.PL$/.t/;
+open my $fh, '>', $file or die "Cannot open '$file': '$!'";
+
+print $fh "#!perl$flags\n", <<'CODA', $code;
+# -*- mode: cperl ; compile-command: "cd .. ; ./Build ; prove -vb t/11-*.t" -*-;
+
+BEGIN { $_ = defined && /(.*)/ && $1 for @ENV{qw/ TMPDIR TEMP TMP /} } # taint vs tempfile
 use Test::More;
 use strict;
 use warnings;
+
+CODA
+
+print $fh <DATA>;
+
+exit 0;
+
+__DATA__
 
 use File::Temp qw( tempfile );
 

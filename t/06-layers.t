@@ -1,5 +1,7 @@
 #!perl -T
 # -*- mode: cperl ; compile-command: "cd .. ; ./Build ; prove -vb t/06-*.t" -*-
+
+BEGIN { $_ = defined && /(.*)/ && $1 for @ENV{qw/ TMPDIR TEMP TMP /} } # taint vs tempfile
 use Test::More tests => 4*15 + 4*5 + 3*6 + 5*13; # non-default standard layers + output backend + internal exceptions + exits
 use IO::Handle;
 use File::Temp qw( tempfile );

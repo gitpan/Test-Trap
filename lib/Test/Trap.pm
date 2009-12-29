@@ -1,6 +1,6 @@
 package Test::Trap;
 
-use version; $VERSION = qv('0.2.0');
+use version; $VERSION = qv('0.2.1');
 
 use strict;
 use warnings;
@@ -301,7 +301,7 @@ Test::Trap - Trap exit codes, exceptions, output, etc.
 
 =head1 VERSION
 
-Version 0.2.0
+Version 0.2.1
 
 =head1 SYNOPSIS
 
@@ -321,7 +321,7 @@ on steroids, configurable and extensible, but by default trapping
 return values from boxed blocks of test code.
 
 The values collected by the latest trap can then be queried or tested
-through a a special trap object.
+through a special trap object.
 
 =head1 EXPORT
 

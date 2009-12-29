@@ -1,5 +1,19 @@
 Revision history for Test-Trap
 
+0.2.1	Tue Dec 29 23:14:45 CET 2009
+	Documentation:
+	 - fix a typo, [RT #48941]; thanks go to David Taylor;
+	Tests:
+	 - use .PL-files to build the test files t/08-fork.t and
+           t/11-systemsafe-basic.t instead of dispatching through
+           *-taint.t and *-no-taint.t files at runtime;
+	Build:
+	 - setup the build of the above test files in Build.PL;
+	 - add a ACTION_distmeta override to check for patch to or
+           version of Module::Build::Compat with correct handling of
+           PL_FILES/PL_files;
+	 - update the MANIFEST and .SKIP files accordingly.
+
 0.2.0	Tue Sep 30 04:28:30 CEST 2008
 	Test::Trap::Builder::SystemSafe:
 	 - add explicit close()s, as it seems various files otherwise

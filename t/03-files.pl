@@ -1,5 +1,6 @@
 #!perl -T
 
+BEGIN { $_ = defined && /(.*)/ && $1 for @ENV{qw/ TMPDIR TEMP TMP /} } # taint vs tempfile
 use Test::More;
 use IO::Handle;
 use File::Temp qw( tempfile );

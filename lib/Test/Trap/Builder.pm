@@ -1,6 +1,6 @@
 package Test::Trap::Builder;
 
-use version; $VERSION = qv('0.2.0');
+use version; $VERSION = qv('0.2.1');
 
 use strict;
 use warnings;
@@ -366,7 +366,7 @@ Test::Trap::Builder - Backend for building test traps
 
 =head1 VERSION
 
-Version 0.2.0
+Version 0.2.1
 
 =head1 SYNOPSIS
 
