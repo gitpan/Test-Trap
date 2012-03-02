@@ -1,5 +1,19 @@
 Revision history for Test-Trap
 
+0.2.2	Fri Mar  2 02:23:04 CET 2012
+        Test::Trap::Builder::TempFile & Test::Trap::Builder::SystemSafe:
+        - RT #61776: Remove temporary files at first opportunity;
+          thanks go to Ian Goodacre.
+        Documentation:
+        - RT #61773: return from trap function
+          Document what trap { ... } returns.
+        Tests:
+        - RT #75430: Failing tests in 06-layer.t
+          Convert a number of die_is to die_like, handling cases with
+          and without trailing comma from carp.
+        - Unset another taint-checked environment variable, CDPATH;
+          thanks go to CPAN testers.
+
 0.2.1	Tue Dec 29 23:14:45 CET 2009
 	Documentation:
 	 - fix a typo, [RT #48941]; thanks go to David Taylor;

@@ -1,6 +1,6 @@
 package Test::Trap::Builder;
 
-use version; $VERSION = qv('0.2.1');
+use version; $VERSION = qv('0.2.2');
 
 use strict;
 use warnings;
@@ -366,7 +366,7 @@ Test::Trap::Builder - Backend for building test traps
 
 =head1 VERSION
 
-Version 0.2.1
+Version 0.2.2
 
 =head1 SYNOPSIS
 
@@ -771,7 +771,7 @@ Eirik Berg Hanssen, C<< <ebhanssen@allverden.no> >>
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2006-2008 Eirik Berg Hanssen, All Rights Reserved.
+Copyright 2006-2012 Eirik Berg Hanssen, All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

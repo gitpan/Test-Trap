@@ -103,6 +103,7 @@ BEGIN {
 
 # Protect against tainted PATH &c ...
 $ENV{PATH} = '';
+$ENV{CDPATH} = '';
 $ENV{ENV} = '';
 $ENV{BASH_ENV} = '';
 

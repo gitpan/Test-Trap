@@ -1,12 +1,31 @@
 ---
-name: Test-Trap
-version: v0.2.1
+abstract: 'Trap exit codes, exceptions, output, etc.'
 author:
   - 'Eirik Berg Hanssen <Eirik-Berg.Hanssen@allverden.no>'
-abstract: 'Trap exit codes, exceptions, output, etc.'
+configure_requires:
+  Module::Build: 0.36
+generated_by: 'Module::Build version 0.3607'
 license: perl
-resources:
-  license: http://dev.perl.org/licenses/
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Test-Trap
+provides:
+  Test::Trap:
+    file: lib/Test/Trap.pm
+    version: v0.2.2
+  Test::Trap::Builder:
+    file: lib/Test/Trap/Builder.pm
+    version: v0.2.2
+  Test::Trap::Builder::PerlIO:
+    file: lib/Test/Trap/Builder/PerlIO.pm
+    version: v0.2.2
+  Test::Trap::Builder::SystemSafe:
+    file: lib/Test/Trap/Builder/SystemSafe.pm
+    version: v0.2.2
+  Test::Trap::Builder::TempFile:
+    file: lib/Test/Trap/Builder/TempFile.pm
+    version: v0.2.2
 requires:
   Carp: 0
   Data::Dump: 0
@@ -23,25 +42,6 @@ requires:
   strict: 0
   version: 0
   warnings: 0
-configure_requires:
-  Module::Build: 0.35
-provides:
-  Test::Trap:
-    file: lib/Test/Trap.pm
-    version: v0.2.1
-  Test::Trap::Builder:
-    file: lib/Test/Trap/Builder.pm
-    version: v0.2.1
-  Test::Trap::Builder::PerlIO:
-    file: lib/Test/Trap/Builder/PerlIO.pm
-    version: v0.2.1
-  Test::Trap::Builder::SystemSafe:
-    file: lib/Test/Trap/Builder/SystemSafe.pm
-    version: v0.2.1
-  Test::Trap::Builder::TempFile:
-    file: lib/Test/Trap/Builder/TempFile.pm
-    version: v0.2.1
-generated_by: Module::Build version 0.35
-meta-spec:
-  url: http://module-build.sourceforge.net/META-spec-v1.4.html
-  version: 1.4
+resources:
+  license: http://dev.perl.org/licenses/
+version: v0.2.2

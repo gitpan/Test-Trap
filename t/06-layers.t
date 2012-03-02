@@ -80,23 +80,15 @@ TEST
 
 for my $case
   ( [ exception1 => sub { die "going down\n" },
-      "Rethrowing internal exception: going down\n at (exception1) line 7\n",
+      qr{^Rethrowing internal exception: going down\n at \(exception1\) line 7\.?\n\z},
       0, '(in layer, so user code not run)',
     ],
     [ exception2 => sub { my $self = shift; $self->Teardown(sub { die "going up\n" } ); $self->Next },
-      join( $/,
-	    "Rethrowing teardown exception: going up\n",
-	    "Rethrowing teardown exception: going up",
-	    " at (exception2) line 7\n",
-	  ),
+      qr{^Rethrowing teardown exception: going up\n\nRethrowing teardown exception: going up\n at \(exception2\) line 7\.?\n\z},
       1, '(in teardown, so user code has been run)',
     ],
     [ exception3 => sub { my $self = shift; $self->Teardown(sub { die "going up\n" } ); die "going down\n" },
-      join( $/,
-	    "Rethrowing internal exception: going down\n",
-	    "Rethrowing teardown exception: going up",
-	    " at (exception3) line 7\n",
-	  ),
+      qr{^Rethrowing internal exception: going down\n\nRethrowing teardown exception: going up\n at \(exception3\) line 7\.?\n\z},
       0, '(in layer, so user code has not run)',
     ],
   ) {
@@ -111,7 +103,7 @@ for my $case
 	$trap->quiet(' ... quietly');
       }
       trap { %s { ++$x } };
-      $trap->die_is( $exception,  ' ... internal exceptions caught and rethrown' );
+      $trap->die_like( $exception, ' ... internal exceptions caught and rethrown' );
       is( $x, $value, ' ... in %s, so user code %s' );
       $trap->quiet;
       1;

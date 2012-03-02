@@ -1,6 +1,6 @@
 package Test::Trap::Builder::SystemSafe;
 
-use version; $VERSION = qv('0.2.1');
+use version; $VERSION = qv('0.2.2');
 
 use strict;
 use warnings;
@@ -24,6 +24,7 @@ sub import {
 	local $/;
 	$self->{$name} .= $fh->getline;
 	close $fh; # don't leak this one either!
+        unlink $file;
       }
       close *$globref;
       return unless $fh_keeper;
@@ -90,7 +91,7 @@ Test::Trap::Builder::SystemSafe - "Safe" output layer backend using File::Temp
 
 =head1 VERSION
 
-Version 0.2.1
+Version 0.2.2
 
 =head1 DESCRIPTION
 
@@ -136,7 +137,7 @@ Eirik Berg Hanssen, C<< <ebhanssen@allverden.no> >>
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2006-2008 Eirik Berg Hanssen, All Rights Reserved.
+Copyright 2006-2012 Eirik Berg Hanssen, All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

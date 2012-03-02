@@ -33,6 +33,7 @@ my $builder = $class->new
     },
     add_to_cleanup =>
     [ 'Test-Trap-*',
+      'MYMETA.yml',
       't/08-fork.t',
       't/11-systemsafe-basic.t',
     ],

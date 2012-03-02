@@ -1,6 +1,6 @@
 package Test::Trap;
 
-use version; $VERSION = qv('0.2.1');
+use version; $VERSION = qv('0.2.2');
 
 use strict;
 use warnings;
@@ -301,7 +301,7 @@ Test::Trap - Trap exit codes, exceptions, output, etc.
 
 =head1 VERSION
 
-Version 0.2.1
+Version 0.2.2
 
 =head1 SYNOPSIS
 
@@ -353,6 +353,12 @@ exit codes, returns and return values, context, and (Perl) output on
 STDOUT or STDERR, and warnings.  All information trapped can be
 queried through the trap object, which is by default exported as
 C<$trap>, but can be exported by any name.
+
+The value returned from C<trap> mimics that returned from C<eval>:  If
+the I<BLOCK> would die or exit, it returns an undefined value in
+scalar context or an empty list in list context; otherwise it returns
+whatever the I<BLOCK> would return in the given context (also
+available as the trapped return values).
 
 =head1 TRAP LAYERS
 
@@ -647,7 +653,7 @@ Eirik Berg Hanssen, C<< <ebhanssen@allverden.no> >>
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2006-2008 Eirik Berg Hanssen, All Rights Reserved.
+Copyright 2006-2012 Eirik Berg Hanssen, All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
