@@ -1,6 +1,6 @@
 package Test::Trap::Builder::TempFile;
 
-use version; $VERSION = qv('0.2.2');
+use version; $VERSION = qv('0.2.3');
 
 use strict;
 use warnings;
@@ -22,7 +22,7 @@ sub import {
       close $fh;
       unlink $file;
     };
-    binmode $fh; # superfluos?
+    binmode $fh; # superfluous?
     local *$globref;
     {
       no warnings 'io';
@@ -44,7 +44,7 @@ Test::Trap::Builder::TempFile - Output layer backend using File::Temp
 
 =head1 VERSION
 
-Version 0.2.2
+Version 0.2.3
 
 =head1 DESCRIPTION
 

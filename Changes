@@ -1,5 +1,16 @@
 Revision history for Test-Trap
 
+0.2.3   Mon Dec 30 14:46:15 CET 2013
+        Library files:
+        - RT #87263: typo fixes, courtesy dsteinbrunner@pobox.com.
+        - Localize the trap coderef, so that it does not hold on to
+          what it closes over, creating stale references, but lets
+          them go out of scope; thanks go to Felipe Gasper.
+        Documentation:
+        - Some clarification for RT #91687: Wrong exit code after die.
+        Tests:
+        - Regression test for the stale references.
+
 0.2.2	Fri Mar  2 02:23:04 CET 2012
         Test::Trap::Builder::TempFile & Test::Trap::Builder::SystemSafe:
         - RT #61776: Remove temporary files at first opportunity;

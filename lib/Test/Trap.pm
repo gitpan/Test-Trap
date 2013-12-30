@@ -1,6 +1,6 @@
 package Test::Trap;
 
-use version; $VERSION = qv('0.2.2');
+use version; $VERSION = qv('0.2.3');
 
 use strict;
 use warnings;
@@ -301,7 +301,7 @@ Test::Trap - Trap exit codes, exceptions, output, etc.
 
 =head1 VERSION
 
-Version 0.2.2
+Version 0.2.3
 
 =head1 SYNOPSIS
 
@@ -479,7 +479,8 @@ The exception, if the latest trap threw one.
 
 =head2 exit
 
-The exit code, if the latest trap tried to exit.
+The exit code, if the latest trap tried to exit (by way of the trap's
+own &CORE::GLOBAL::exit only; see L</"CAVEATS">).
 
 =head2 return [INDEX ...]
 
@@ -600,7 +601,7 @@ of a dump (in Perl code, as per L<Data::Dump>) of the trap object.
 
 =head2 diag_all_once
 
-As L<"diag_all">, except if this instance of the trap object has
+As L</"diag_all">, except if this instance of the trap object has
 already been diag_all_once'd, the diagnostic message will instead
 consist of the string C<(as above)>.
 
@@ -627,10 +628,10 @@ it, this is what you are likely to want it to do in most cases.
 
 Note that the (default) :exit layer only traps &CORE::GLOBAL::exit
 calls (and bare exit() calls that compile to that).  It makes no
-attempt to trap CORE::exit(), POSIX::_exit(), exec(), nor segfault.
-Nor does it attempt to trap anything else that might terminate the
-program.  The trap is a block eval on steroids -- not the last block
-eval of Krypton!
+attempt to trap CORE::exit(), POSIX::_exit(), exec(), untrapped
+exceptions from die(), nor segfault.  Nor does it attempt to trap
+anything else that might terminate the program.  The trap is a block
+eval on steroids -- not the last block eval of Krypton!
 
 This module traps warnings using C<$SIG{__WARN__}>, so may not work
 correctly (or even at all) in the presence of other code setting this

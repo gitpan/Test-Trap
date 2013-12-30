@@ -1,6 +1,6 @@
 package Test::Trap::Builder::SystemSafe;
 
-use version; $VERSION = qv('0.2.2');
+use version; $VERSION = qv('0.2.3');
 
 use strict;
 use warnings;
@@ -40,7 +40,7 @@ sub import {
       close $fh_keeper; # another potential leak, I suppose.
       $globref->autoflush($autoflush_keeper);
     };
-    binmode $fh; # superfluos?
+    binmode $fh; # superfluous?
     open $fh_keeper, ">&$fileno"
       or $self->Exception("Cannot dup '$fileno' for $name: '$!'");
     $autoflush_keeper = $globref->autoflush;
@@ -91,7 +91,7 @@ Test::Trap::Builder::SystemSafe - "Safe" output layer backend using File::Temp
 
 =head1 VERSION
 
-Version 0.2.2
+Version 0.2.3
 
 =head1 DESCRIPTION
 
@@ -116,7 +116,7 @@ Disk access may be slow -- certainly compared to the in-memory files
 of PerlIO.
 
 If the file handle we try to trap using this backend is on an
-in-memory file, it would not be availible to other processes in any
+in-memory file, it would not be available to other processes in any
 case.  Rather than change the semantics of the trapped code or
 silently fail to trap output from forked-off processes, we just raise
 an exception in this case.

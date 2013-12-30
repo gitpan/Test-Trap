@@ -1,6 +1,6 @@
 package Test::Trap::Builder;
 
-use version; $VERSION = qv('0.2.2');
+use version; $VERSION = qv('0.2.3');
 
 use strict;
 use warnings;
@@ -61,7 +61,7 @@ BEGIN {
       last TEST_TRAP_BUILDER_INTERNAL_EXCEPTION;
     };
     # XXX: PANIC!  We returned!?!
-    CORE::exit(8); # XXX: Is there a more approprate exit value?
+    CORE::exit(8); # XXX: Is there a more appropriate exit value?
   }
 }
 
@@ -81,9 +81,9 @@ sub trap {
   my $trap = bless { wantarray => (my $wantarray = wantarray) }, $trapper;
 TEST_TRAP_BUILDER_INTERNAL_EXCEPTION: {
     local *@;
-    $trap->Prop->{code}     = $code;
-    $trap->Prop->{layers}   = [@$layers];
-    $trap->Prop->{teardown} = [];
+    local $trap->Prop->{code} = $code;
+    $trap->Prop->{layers}     = [@$layers];
+    $trap->Prop->{teardown}   = [];
   TEST_TRAP_BUILDER_INTERNAL_EXCEPTION: {
       eval { $trap->Next; 1} or $trap->Exception("Rethrowing internal exception: $@");
     }
@@ -161,6 +161,7 @@ BEGIN { # Test callback registration and test method generation:
 
   my $wrong_leaveby = sub {
     ($accessor, $test, $trap, @arg) = @_;
+    require Test::More;
     my $Test = Test::More->builder;
     my $test_name_index = 0;
     for (@{$test->{argspec}}) {
@@ -366,7 +367,7 @@ Test::Trap::Builder - Backend for building test traps
 
 =head1 VERSION
 
-Version 0.2.2
+Version 0.2.3
 
 =head1 SYNOPSIS
 
@@ -647,7 +648,7 @@ Trappers inherit test callbacks like methods (though they are not
 implemented as such; don't expect to find them in the symbol table).
 
 Test methods of the form I<ACCESSOR>_I<TEST> will be made available
-(directly or by inheritence) to every trapper that registers or
+(directly or by inheritance) to every trapper that registers or
 inherits both the accessor named I<ACCESSOR> and the test named
 I<TEST>.
 

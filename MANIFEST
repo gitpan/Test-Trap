@@ -29,3 +29,4 @@ t/13-regressions.t
 t/99-coverage.t
 xt/author/pod-coverage.t
 xt/author/pod.t
+META.json
