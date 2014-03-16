@@ -1,6 +1,6 @@
 package Test::Trap;
 
-use version; $VERSION = qv('0.2.3');
+use version; $VERSION = qv('0.2.3.0_1');
 
 use strict;
 use warnings;
@@ -301,7 +301,7 @@ Test::Trap - Trap exit codes, exceptions, output, etc.
 
 =head1 VERSION
 
-Version 0.2.3
+Version 0.2.3.0_1
 
 =head1 SYNOPSIS
 
@@ -650,11 +650,11 @@ Please report any bugs or feature requests directly to the author.
 
 =head1 AUTHOR
 
-Eirik Berg Hanssen, C<< <ebhanssen@allverden.no> >>
+Eirik Berg Hanssen, C<< <ebhanssen@cpan.org> >>
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2006-2012 Eirik Berg Hanssen, All Rights Reserved.
+Copyright 2006-2014 Eirik Berg Hanssen, All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

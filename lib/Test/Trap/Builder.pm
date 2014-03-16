@@ -1,6 +1,6 @@
 package Test::Trap::Builder;
 
-use version; $VERSION = qv('0.2.3');
+use version; $VERSION = qv('0.2.3.0_1');
 
 use strict;
 use warnings;
@@ -8,7 +8,7 @@ use Data::Dump qw(dump);
 BEGIN {
   use Exporter ();
   *import = \&Exporter::import;
-  my @methods = qw( Next Exception Teardown Run TestAccessor TestFailure Prop DESTROY );
+  my @methods = qw( Next Exception ExceptionFunction Teardown Run TestAccessor TestFailure Prop DESTROY );
   our @EXPORT_OK = (@methods);
   our %EXPORT_TAGS = ( methods => \@methods );
 }
@@ -52,16 +52,25 @@ BEGIN {
     $self->$m(@_);
   }
 
+  sub ExceptionFunction {
+    my $self = shift;
+    my $exception = $self->Prop->{exception} ||= [];
+    $self->Prop->{exception_function} ||= sub {
+      push @$exception, @_;
+      local *@;
+      eval {
+        no warnings 'exiting';
+        last TEST_TRAP_BUILDER_INTERNAL_EXCEPTION;
+      };
+      # XXX: PANIC!  We returned!?!
+      CORE::exit(8); # XXX: Is there a more appropriate exit value?
+    };
+    return $self->Prop->{exception_function};
+  }
+
   sub Exception {
     my $self = shift;
-    push @{$self->Prop->{exception}}, @_;
-    local *@;
-    eval {
-      no warnings 'exiting';
-      last TEST_TRAP_BUILDER_INTERNAL_EXCEPTION;
-    };
-    # XXX: PANIC!  We returned!?!
-    CORE::exit(8); # XXX: Is there a more appropriate exit value?
+    $self->ExceptionFunction->(@_);
   }
 }
 
@@ -367,7 +376,7 @@ Test::Trap::Builder - Backend for building test traps
 
 =head1 VERSION
 
-Version 0.2.3
+Version 0.2.3.0_1
 
 =head1 SYNOPSIS
 
@@ -541,6 +550,32 @@ Note: The Exception method won't work if called from outside of the
 regular control flow, like inside a DESTROY method or signal handler.
 If anything like this happens, CORE::exit will be called with an exit
 code of 8.
+
+Note: Direct calls to the Exception method within closures may cause
+circular references and so leakage.  To avoid this, fetch an
+L</"ExceptionFunction"> and call it from the closure instead.
+
+=head2 ExceptionFunction
+
+This method returns a function that may be called with the same effect
+as calling the L</"Exception"> method, allowing closures to throw
+exceptions without causing circular references by closing over the
+trap object itself.
+
+To illustrate:
+
+  # this will create a circular reference chain:
+  # trap object has property collection has teardown closure has trap object
+  $self->Teardown($_) for sub {
+    do_stuff() or $self->Exception("Stuff didn't work.");
+  };
+
+  # this will break the circular reference chain:
+  # teardown closure no longer has trap object
+  $Exception = $self->ExceptionFunction;
+  $self->Teardown($_) for sub {
+    do_things() or $Exception->("Things didn't work.");
+  };
 
 =head1 METHODS
 
@@ -768,11 +803,11 @@ Please report any bugs or feature requests directly to the author.
 
 =head1 AUTHOR
 
-Eirik Berg Hanssen, C<< <ebhanssen@allverden.no> >>
+Eirik Berg Hanssen, C<< <ebhanssen@cpan.org> >>
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2006-2012 Eirik Berg Hanssen, All Rights Reserved.
+Copyright 2006-2014 Eirik Berg Hanssen, All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

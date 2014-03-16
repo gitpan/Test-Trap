@@ -1,6 +1,6 @@
 package Test::Trap::Builder::TempFile;
 
-use version; $VERSION = qv('0.2.3');
+use version; $VERSION = qv('0.2.3.0_1');
 
 use strict;
 use warnings;
@@ -14,14 +14,17 @@ sub import {
     my ($name, $fileno, $globref) = @_;
     my $pid = $$;
     my ($fh, $file) = tempfile( UNLINK => 1 ); # XXX: Test?
-    $self->Teardown($_) for sub {
-      # if the file is opened by some other process, that one should deal with it:
-      return unless $pid == $$;
-      local $/;
-      $self->{$name} .= <$fh>;
-      close $fh;
-      unlink $file;
-    };
+    # make an alias to $self->{$name}, so that the closure does not hold $self:
+    for my $buffer ($self->{$name}) {
+      $self->Teardown($_) for sub {
+        # if the file is opened by some other process, that one should deal with it:
+        return unless $pid == $$;
+        local $/;
+        $buffer .= <$fh>;
+        close $fh;
+        unlink $file;
+      };
+    }
     binmode $fh; # superfluous?
     local *$globref;
     {
@@ -44,7 +47,7 @@ Test::Trap::Builder::TempFile - Output layer backend using File::Temp
 
 =head1 VERSION
 
-Version 0.2.3
+Version 0.2.3.0_1
 
 =head1 DESCRIPTION
 
@@ -73,11 +76,11 @@ Please report any bugs or feature requests directly to the author.
 
 =head1 AUTHOR
 
-Eirik Berg Hanssen, C<< <ebhanssen@allverden.no> >>
+Eirik Berg Hanssen, C<< <ebhanssen@cpan.org> >>
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2006-2012 Eirik Berg Hanssen, All Rights Reserved.
+Copyright 2006-2014 Eirik Berg Hanssen, All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

@@ -1,5 +1,25 @@
 Revision history for Test-Trap
 
+0.2.4b  (non-dev release pending)
+        Test::Trap::Builder:
+        - Add a method ExceptionFunction to make it easier to avoid
+          circular references arising from registered closures.
+          Document and export this method.
+        Test::Trap::Builder::TempFile:
+        - Break a circular reference chain found through a bug report;
+          thanks go once again to Felipe Gasper.
+        Test::Trap::Builder::SystemSafe:
+        - Break a similar but slightly more complicated circular
+          reference chain.
+        Tests:
+        - Added t/14-leaks.t to check that the reference count is as
+          expected, at least with trivial code and standard setup for
+          all three output layer backends.
+        Also:
+        - Use ebhanssen@cpan.org for my email address.
+        - Update copyright years.
+        - Update MANIFEST.SKIP &c for use of git (goodbye subversion).
+
 0.2.3   Mon Dec 30 14:46:15 CET 2013
         Library files:
         - RT #87263: typo fixes, courtesy dsteinbrunner@pobox.com.

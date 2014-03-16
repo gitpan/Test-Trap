@@ -1,6 +1,6 @@
 package Test::Trap::Builder::SystemSafe;
 
-use version; $VERSION = qv('0.2.3');
+use version; $VERSION = qv('0.2.3.0_1');
 
 use strict;
 use warnings;
@@ -18,38 +18,41 @@ sub import {
     }
     my ($fh, $file) = tempfile( UNLINK => 1 ); # XXX: Test?
     my ($fh_keeper, $autoflush_keeper);
-    $self->Teardown($_) for sub {
-      if ($pid == $$) {
-	# this process opened it, so it gets to collect the contents:
-	local $/;
-	$self->{$name} .= $fh->getline;
-	close $fh; # don't leak this one either!
-        unlink $file;
-      }
-      close *$globref;
-      return unless $fh_keeper;
-      # close and reopen the file to the keeper!
-      my $fno = fileno $fh_keeper;
-      _close_reopen( $self, $globref, $fileno, ">&$fno",
-		     sub {
-		       close $fh_keeper;
-		       sprintf "Cannot dup '%s' for %s: '%s'",
-			 $fno, $name, $!;
-		     },
-		   );
-      close $fh_keeper; # another potential leak, I suppose.
-      $globref->autoflush($autoflush_keeper);
-    };
+    my $Die = $self->ExceptionFunction;
+    for my $buffer ($self->{$name}) {
+      $self->Teardown($_) for sub {
+        if ($pid == $$) {
+          # this process opened it, so it gets to collect the contents:
+          local $/;
+          $buffer .= $fh->getline;
+          close $fh; # don't leak this one either!
+          unlink $file;
+        }
+        close *$globref;
+        return unless $fh_keeper;
+        # close and reopen the file to the keeper!
+        my $fno = fileno $fh_keeper;
+        _close_reopen( $Die, $globref, $fileno, ">&$fno",
+                       sub {
+                         close $fh_keeper;
+                         sprintf "Cannot dup '%s' for %s: '%s'",
+                           $fno, $name, $!;
+                       },
+                     );
+        close $fh_keeper; # another potential leak, I suppose.
+        $globref->autoflush($autoflush_keeper);
+      };
+    }
     binmode $fh; # superfluous?
     open $fh_keeper, ">&$fileno"
       or $self->Exception("Cannot dup '$fileno' for $name: '$!'");
     $autoflush_keeper = $globref->autoflush;
-    _close_reopen( $self, $globref, $fileno, ">>$file",
-		   sub {
-		     sprintf "Cannot open %s for %s: '%s'",
-		       $file, $name, $!;
-		   },
-		 );
+    _close_reopen( $self->ExceptionFunction, $globref, $fileno, ">>$file",
+                   sub {
+                     sprintf "Cannot open %s for %s: '%s'",
+                       $file, $name, $!;
+                   },
+                 );
     binmode *$globref; # must write with the same mode as we read.
     $globref->autoflush(1);
     $self->Next;
@@ -57,24 +60,24 @@ sub import {
 }
 
 sub _close_reopen {
-  my ($result, $glob, $fno_want, $what, $err) = @_;
+  my ($Die, $glob, $fno_want, $what, $err) = @_;
   close *$glob;
   my @fh;
   while (1) {
     no warnings 'io';
-    open *$glob, $what or $result->Exception($err->());
+    open *$glob, $what or $Die->($err->());
     my $fileno = fileno *$glob;
     last if $fileno == $fno_want;
     close *$glob;
     if ($fileno > $fno_want) {
-      $result->Exception("Cannot get the desired descriptor, '$fno_want' (could it be that it is fdopened and so still open?)");
+      $Die->("Cannot get the desired descriptor, '$fno_want' (could it be that it is fdopened and so still open?)");
     }
     if (grep{$fileno == fileno($_)}@fh) {
-      $result->Exception("Getting several files opened on fileno $fileno");
+      $Die->("Getting several files opened on fileno $fileno");
     }
-    open my $fh, $what or $result->Exception($err->());
+    open my $fh, $what or $Die->($err->());
     if (fileno($fh) != $fileno) {
-      $result->Exception("Getting fileno " . fileno($fh) . "; expecting $fileno");
+      $Die->("Getting fileno " . fileno($fh) . "; expecting $fileno");
     }
     push @fh, $fh;
   }
@@ -91,7 +94,7 @@ Test::Trap::Builder::SystemSafe - "Safe" output layer backend using File::Temp
 
 =head1 VERSION
 
-Version 0.2.3
+Version 0.2.3.0_1
 
 =head1 DESCRIPTION
 
@@ -133,11 +136,11 @@ Please report any bugs or feature requests directly to the author.
 
 =head1 AUTHOR
 
-Eirik Berg Hanssen, C<< <ebhanssen@allverden.no> >>
+Eirik Berg Hanssen, C<< <ebhanssen@cpan.org> >>
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2006-2012 Eirik Berg Hanssen, All Rights Reserved.
+Copyright 2006-2014 Eirik Berg Hanssen, All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

@@ -7,6 +7,7 @@ lib/Test/Trap/Builder/SystemSafe.pm
 lib/Test/Trap/Builder/TempFile.pm
 Makefile.PL
 MANIFEST
+META.json
 META.yml
 README
 t/00-load.t
@@ -26,7 +27,7 @@ t/10-tester.t
 t/11-systemsafe-basic.PL
 t/12-systemsafe-errors.t
 t/13-regressions.t
+t/14-leaks.t
 t/99-coverage.t
 xt/author/pod-coverage.t
 xt/author/pod.t
-META.json
