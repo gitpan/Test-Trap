@@ -1,13 +1,18 @@
 Revision history for Test-Trap
 
-0.2.4b  (non-dev release pending)
+0.2.4	Sun Mar 30 10:02:16 CEST 2014
+	This release fixes a memory leak with the default tempfile
+	backend layer implementation for trapping output.  The
+	systemsafe alternative backend had the same kind of leak, and
+	has also been fixed.  (The perlio alternative backend was not
+	affected.)
+        Thanks go again to Felipe Gasper for discovering this!
         Test::Trap::Builder:
         - Add a method ExceptionFunction to make it easier to avoid
           circular references arising from registered closures.
           Document and export this method.
         Test::Trap::Builder::TempFile:
-        - Break a circular reference chain found through a bug report;
-          thanks go once again to Felipe Gasper.
+        - Break a circular reference chain.
         Test::Trap::Builder::SystemSafe:
         - Break a similar but slightly more complicated circular
           reference chain.

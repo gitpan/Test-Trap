@@ -1,6 +1,6 @@
 package Test::Trap::Builder::TempFile;
 
-use version; $VERSION = qv('0.2.3.0_1');
+use version; $VERSION = qv('0.2.4');
 
 use strict;
 use warnings;
@@ -47,7 +47,7 @@ Test::Trap::Builder::TempFile - Output layer backend using File::Temp
 
 =head1 VERSION
 
-Version 0.2.3.0_1
+Version 0.2.4
 
 =head1 DESCRIPTION
 
