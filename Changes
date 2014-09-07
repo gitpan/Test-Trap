@@ -1,5 +1,18 @@
 Revision history for Test-Trap
 
+0.2.4.0_1
+	Mon Sep  8 00:36:57 CEST 2014
+	This release localizes $! (ERRNO) for internal operations that
+	change it, as suggested by Felipe Gasper.  For the same
+	operations, it also localizes $^E (extended OS error).
+        Library files:
+        - Localize $! and $^E for internal operations that change them.
+        Tests:
+        - Check that bare test blocks leave $!, %!, and $^E unchanged,
+          but that blocks that modify $! and $^E still do so.
+        Also:
+        - Added Module::Build to the configure_requires.
+
 0.2.4	Sun Mar 30 10:02:16 CEST 2014
 	This release fixes a memory leak with the default tempfile
 	backend layer implementation for trapping output.  The

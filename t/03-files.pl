@@ -14,7 +14,7 @@ BEGIN {
   local $@;
   eval qq{ use $pkg };
   if (exists &{"$pkg\::import"}) {
-    plan tests => 1 + 6*10 + 5*3 + 1; # 10 runtests; 3 inner_tests
+    plan tests => 1 + 6*10 + 5*3 + 13; # 10 runtests; 3 inner_tests; another bunch ...
   }
   else {
     plan skip_all => "$backend backend not supported; skipping";
@@ -164,5 +164,32 @@ trap {
     warn "no newline";
 };
 unlike $T->stderr, qr/, \S+ line 1\./, 'No "<$f> line ..." stuff, please';
+
+# test the $! handling:
+my $errnum = 11; # "Resource temporarily unavailable" locally -- sounds good :-P
+my $errstring = do { local $! = $errnum; "$!" };
+my $erros = do { local $! = $errnum; $^E };
+my ($errsym) = do { local $! = $errnum; grep { $!{$_} } keys %! };
+for my $case ([Bare => sub { return 42 }], [Dying => sub { die 42 }], [Exiting => sub { exit 42 }]) {
+  my ($type, $code);
+  local $! = $errnum;
+  trap { $code->() };
+  my ($sym) = grep { $!{$_} } keys %!;
+  is $!+0, $errnum, "$type trap doesn't change errno (remains $errnum/$errstring)";
+  is $^E, $erros,  "$type trap doesn't change extended OS error (remains $erros)";
+  is $sym, $errsym, "$type trap doesn't change the error symbol (remains $errsym)";
+}
+
+{
+  local $! = $errnum;
+  trap {
+    $! = 0;
+    $^E = '';
+  };
+  my ($sym) = grep { $!{$_} } keys %!;
+  is $!+0, 0, "Errno-unsetting trap unsets errno (it's not localized)";
+  is $^E, '',  "Errno-unsetting trap unsets extended OS error (it's not localized)";
+  is $sym, undef, "Errno-unsetting trap unsets the error symbol (it's not localized)";
+}
 
 1;

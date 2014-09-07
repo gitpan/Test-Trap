@@ -1,6 +1,6 @@
 package Test::Trap::Builder::SystemSafe;
 
-use version; $VERSION = qv('0.2.4');
+use version; $VERSION = qv('0.2.4.0_1');
 
 use strict;
 use warnings;
@@ -16,11 +16,15 @@ sub import {
     if (tied *$globref or $fileno < 0) {
       $self->Exception("SystemSafe only works with real file descriptors; aborting");
     }
-    my ($fh, $file) = tempfile( UNLINK => 1 ); # XXX: Test?
+    my ($fh, $file) = do {
+      local ($!, $^E);
+      tempfile( UNLINK => 1 ); # XXX: Test?
+    };
     my ($fh_keeper, $autoflush_keeper);
     my $Die = $self->ExceptionFunction;
     for my $buffer ($self->{$name}) {
       $self->Teardown($_) for sub {
+        local ($!, $^E);
         if ($pid == $$) {
           # this process opened it, so it gets to collect the contents:
           local $/;
@@ -44,8 +48,11 @@ sub import {
       };
     }
     binmode $fh; # superfluous?
-    open $fh_keeper, ">&$fileno"
-      or $self->Exception("Cannot dup '$fileno' for $name: '$!'");
+    {
+      local ($!, $^E);
+      open $fh_keeper, ">&$fileno"
+        or $self->Exception("Cannot dup '$fileno' for $name: '$!'");
+    }
     $autoflush_keeper = $globref->autoflush;
     _close_reopen( $self->ExceptionFunction, $globref, $fileno, ">>$file",
                    sub {
@@ -61,6 +68,7 @@ sub import {
 
 sub _close_reopen {
   my ($Die, $glob, $fno_want, $what, $err) = @_;
+  local ($!, $^E);
   close *$glob;
   my @fh;
   while (1) {
@@ -94,7 +102,7 @@ Test::Trap::Builder::SystemSafe - "Safe" output layer backend using File::Temp
 
 =head1 VERSION
 
-Version 0.2.4
+Version 0.2.4.0_1
 
 =head1 DESCRIPTION
 

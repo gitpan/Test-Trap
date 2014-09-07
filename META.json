@@ -4,7 +4,7 @@
       "Eirik Berg Hanssen <ebhanssen@cpan.org>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "Module::Build version 0.38, CPAN::Meta::Converter version 2.110440",
+   "generated_by" : "Module::Build version 0.4003, CPAN::Meta::Converter version 2.133380",
    "license" : [
       "perl_5"
    ],
@@ -16,56 +16,56 @@
    "prereqs" : {
       "configure" : {
          "requires" : {
-            "Module::Build" : "0.38"
+            "Module::Build" : "0"
          }
       },
       "runtime" : {
          "requires" : {
-            "Carp" : 0,
-            "Data::Dump" : 0,
-            "Exporter" : 0,
-            "File::Temp" : 0,
-            "IO::Handle" : 0,
-            "Test::Builder" : 0,
-            "Test::More" : 0,
+            "Carp" : "0",
+            "Data::Dump" : "0",
+            "Exporter" : "0",
+            "File::Temp" : "0",
+            "IO::Handle" : "0",
+            "Test::Builder" : "0",
+            "Test::More" : "0",
             "Test::Tester" : "0.107",
-            "base" : 0,
-            "constant" : 0,
-            "lib" : 0,
+            "base" : "0",
+            "constant" : "0",
+            "lib" : "0",
             "perl" : "v5.6.2",
-            "strict" : 0,
-            "version" : 0,
-            "warnings" : 0
+            "strict" : "0",
+            "version" : "0",
+            "warnings" : "0"
          }
       }
    },
    "provides" : {
       "Test::Trap" : {
          "file" : "lib/Test/Trap.pm",
-         "version" : "v0.2.4"
+         "version" : "v0.2.4.0_1"
       },
       "Test::Trap::Builder" : {
          "file" : "lib/Test/Trap/Builder.pm",
-         "version" : "v0.2.4"
+         "version" : "v0.2.4.0_1"
       },
       "Test::Trap::Builder::PerlIO" : {
          "file" : "lib/Test/Trap/Builder/PerlIO.pm",
-         "version" : "v0.2.4"
+         "version" : "v0.2.4.0_1"
       },
       "Test::Trap::Builder::SystemSafe" : {
          "file" : "lib/Test/Trap/Builder/SystemSafe.pm",
-         "version" : "v0.2.4"
+         "version" : "v0.2.4.0_1"
       },
       "Test::Trap::Builder::TempFile" : {
          "file" : "lib/Test/Trap/Builder/TempFile.pm",
-         "version" : "v0.2.4"
+         "version" : "v0.2.4.0_1"
       }
    },
-   "release_status" : "stable",
+   "release_status" : "testing",
    "resources" : {
       "license" : [
          "http://dev.perl.org/licenses/"
       ]
    },
-   "version" : "v0.2.4"
+   "version" : "v0.2.4.0_1"
 }

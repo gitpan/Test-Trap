@@ -10,6 +10,9 @@ my $builder = $class->new
     create_makefile_pl  => 'traditional',
     dist_author         => 'Eirik Berg Hanssen <ebhanssen@cpan.org>',
     dist_version_from   => 'lib/Test/Trap.pm',
+    configure_requires  =>
+    { 'Module::Build'     => 0,
+    },
     requires =>
     { 'base'              => 0, # core ...
       'constant'          => 0, # core ...
