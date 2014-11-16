@@ -1,6 +1,6 @@
 package Test::Trap::Builder;
 
-use version; $VERSION = qv('0.2.4.0_1');
+use version; $VERSION = qv('0.2.5');
 
 use strict;
 use warnings;
@@ -142,6 +142,7 @@ BEGIN { # Test callback registration and test method generation:
     );
   # backwards compatibility -- don't use these:
   @argspec{ qw( object all indexed ) } = @argspec{ qw( trap entirety element ) };
+  # stringifying the CODE refs, that we may easily check if we have a specific one:
   my %isname    = ( $argspec{name}      => 1 );
   my %iselement = ( $argspec{element}   => 1 );
   my %takesarg  = ( $argspec{predicate} => 1 );
@@ -352,7 +353,7 @@ sub layer_implementation {
       next;
     }
     my ($name, $arg) =
-      /^ ( [^\(]+ )      # meth: anything but '('
+      /^ ( [^\(]+ )      # layer name: anything but '('
          (?:             # begin optional group
              \(          # literal '('
              ( [^\)]* )  # arg: anything but ')'
@@ -376,7 +377,7 @@ Test::Trap::Builder - Backend for building test traps
 
 =head1 VERSION
 
-Version 0.2.4.0_1
+Version 0.2.5
 
 =head1 SYNOPSIS
 

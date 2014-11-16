@@ -1,6 +1,6 @@
 package Test::Trap::Builder::SystemSafe;
 
-use version; $VERSION = qv('0.2.4.0_1');
+use version; $VERSION = qv('0.2.5');
 
 use strict;
 use warnings;
@@ -102,7 +102,7 @@ Test::Trap::Builder::SystemSafe - "Safe" output layer backend using File::Temp
 
 =head1 VERSION
 
-Version 0.2.4.0_1
+Version 0.2.5
 
 =head1 DESCRIPTION
 
