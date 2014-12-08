@@ -8,16 +8,16 @@ use Data::Dump qw(dump);
 use strict;
 use warnings;
 
-our $backend; # to be set in the requiring test script ...
+our $strategy; # to be set in the requiring test script ...
 BEGIN {
-  my $pkg = "Test::Trap::Builder::$backend";
+  my $pkg = "Test::Trap::Builder::$strategy";
   local $@;
   eval qq{ use $pkg };
   if (exists &{"$pkg\::import"}) {
-    plan tests => 1 + 6*10 + 5*3 + 13; # 10 runtests; 3 inner_tests; another bunch ...
+    plan tests => 1 + 6*10 + 5*3 + 17; # 10 runtests; 3 inner_tests; another bunch ...
   }
   else {
-    plan skip_all => "$backend backend not supported; skipping";
+    plan skip_all => "$strategy strategy not supported; skipping";
   }
 }
 
@@ -31,7 +31,7 @@ BEGIN {
 # properly restored on exit from a trap.  Ouch.
 
 BEGIN {
-  use_ok( 'Test::Trap', '$T', lc ":flow:stdout($backend):stderr($backend):warn" );
+  use_ok( 'Test::Trap', '$T', lc ":flow:stdout($strategy):stderr($strategy):warn" );
 }
 
 STDERR: {
@@ -165,19 +165,43 @@ trap {
 };
 unlike $T->stderr, qr/, \S+ line 1\./, 'No "<$f> line ..." stuff, please';
 
+# regression test for preservation of PerlIO layers:
+SKIP: {
+  skip 'Lacking PerlIO', 4 unless eval "use PerlIO; 1";
+  my @io = PerlIO::get_layers(*STDOUT);
+  trap { binmode STDOUT, ':utf8' }; # or whatever, really
+  is_deeply( [PerlIO::get_layers(*STDOUT)], \@io, 'STDOUT still has the original layers.')
+    or diag(dump(\@io));
+  binmode STDOUT;
+  my @raw = PerlIO::get_layers(*STDOUT);
+  trap { binmode STDOUT, ':utf8' }; # or whatever, really
+  is_deeply( [PerlIO::get_layers(*STDOUT)], \@raw, 'STDOUT is still binmoded.')
+    or diag(dump([PerlIO::get_layers(*STDOUT)], \@raw));
+  binmode STDOUT, ':crlf';
+  my @crlf = PerlIO::get_layers(*STDOUT);
+  trap { binmode STDOUT, ':utf8' }; # or whatever, really
+  is_deeply( [PerlIO::get_layers(*STDOUT)], \@crlf, 'STDOUT still has the crlf layer(s).')
+    or diag(dump([PerlIO::get_layers(*STDOUT)], \@crlf));
+  binmode STDOUT;
+  my @tmp = @io;
+  $_ eq $tmp[0] ? shift @tmp : last for PerlIO::get_layers(*STDOUT);
+  binmode STDOUT, $_ for @tmp;
+  is_deeply( [PerlIO::get_layers(*STDOUT)], \@io, 'Sanity check: STDOUT now again has the original layers.')
+    or diag(dump([PerlIO::get_layers(*STDOUT)], \@io));
+}
+
 # test the $! handling:
 my $errnum = 11; # "Resource temporarily unavailable" locally -- sounds good :-P
 my $errstring = do { local $! = $errnum; "$!" };
 my $erros = do { local $! = $errnum; $^E };
-my ($errsym) = do { local $! = $errnum; grep { $!{$_} } keys %! };
+my ($errsym) = do { local $! = $errnum; grep { $!{$_} } keys(%!) };
 for my $case ([Bare => sub { return 42 }], [Dying => sub { die 42 }], [Exiting => sub { exit 42 }]) {
-  my ($type, $code);
   local $! = $errnum;
-  trap { $code->() };
-  my ($sym) = grep { $!{$_} } keys %!;
-  is $!+0, $errnum, "$type trap doesn't change errno (remains $errnum/$errstring)";
-  is $^E, $erros,  "$type trap doesn't change extended OS error (remains $erros)";
-  is $sym, $errsym, "$type trap doesn't change the error symbol (remains $errsym)";
+  trap {};
+  my ($sym) = grep { $!{$_} } keys(%!);
+  is $!+0, $errnum, "$strategy trap doesn't change errno (remains $errnum/$errstring)";
+  is $^E,  $erros,  "$strategy trap doesn't change extended OS error (remains $erros)";
+  is $sym, $errsym, "$strategy trap doesn't change the error symbol (remains $errsym)";
 }
 
 {
@@ -186,9 +210,9 @@ for my $case ([Bare => sub { return 42 }], [Dying => sub { die 42 }], [Exiting =
     $! = 0;
     $^E = '';
   };
-  my ($sym) = grep { $!{$_} } keys %!;
-  is $!+0, 0, "Errno-unsetting trap unsets errno (it's not localized)";
-  is $^E, '',  "Errno-unsetting trap unsets extended OS error (it's not localized)";
+  my ($sym) = grep { $!{$_} } keys(%!);
+  is $!+0,     0, "Errno-unsetting trap unsets errno (it's not localized)";
+  is $^E,     '', "Errno-unsetting trap unsets extended OS error (it's not localized)";
   is $sym, undef, "Errno-unsetting trap unsets the error symbol (it's not localized)";
 }
 

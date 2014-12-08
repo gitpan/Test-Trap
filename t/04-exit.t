@@ -26,7 +26,7 @@ BEGIN {
 my $errnum = 11; # "Resource temporarily unavailable" locally -- sounds good :-P
 my $errstring = do { local $! = $errnum; "$!" };
 my $erros = do { local $! = $errnum; $^E };
-my ($errsym) = do { local $! = $errnum; grep { $!{$_} } keys %! };
+my ($errsym) = do { local $! = $errnum; grep { $!{$_} } keys(%!) };
 
 $! = $errnum;
 
@@ -42,7 +42,7 @@ trap {
 };
 like( $trap->stderr, qr/^Subroutine (?:CORE::GLOBAL::)?exit redefined at \Q${\__FILE__} line/, 'Override warning' );
 
-my ($sym) = grep { $!{$_} } keys %!;
+my ($sym) = grep { $!{$_} } keys(%!);
 is $!+0, $errnum, "These traps don't change errno (remains $errnum/$errstring)";
 is $^E, $erros,  "These traps don't change extended OS error (remains $erros)";
 is $sym, $errsym, "These traps don't change the error symbol (remains $errsym)";

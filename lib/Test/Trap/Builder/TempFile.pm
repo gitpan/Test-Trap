@@ -1,6 +1,6 @@
 package Test::Trap::Builder::TempFile;
 
-use version; $VERSION = qv('0.2.5');
+use version; $VERSION = qv('0.2.5.0_1');
 
 use strict;
 use warnings;
@@ -9,7 +9,10 @@ use File::Temp qw( tempfile );
 use Test::Trap::Builder;
 
 sub import {
-  Test::Trap::Builder->output_layer_backend( tempfile => $_ ) for sub {
+  shift; # package name
+  my $strategy_name = @_ ? shift : 'tempfile';
+  my $strategy_option = @_ ? shift : {};
+  Test::Trap::Builder->capture_strategy( $strategy_name => $_ ) for sub {
     my $self = shift;
     my ($name, $fileno, $globref) = @_;
     my $pid = $$;
@@ -29,14 +32,29 @@ sub import {
         unlink $file;
       };
     }
-    binmode $fh; # superfluous?
+    my @io_layers;
+  IO_LAYERS: {
+      local($!, $^E);
+      if ($strategy_option->{preserve_io_layers}) {
+        @io_layers = PerlIO::get_layers(*$globref, output => 1);
+      }
+      if ($strategy_option->{io_layers}) {
+        push @io_layers, $strategy_option->{io_layers};
+      }
+      binmode $fh; # set the perlio layers for reading:
+      binmode $fh, $_ for @io_layers;
+    }
     local *$globref;
     {
       no warnings 'io';
       local ($!, $^E);
       open *$globref, '>>', $file;
     }
-    binmode *$globref; # must write as we read.
+  IO_LAYERS: {
+      local($!, $^E);
+      binmode *$globref; # set the perlio layers for writing:
+      binmode *$globref, $_ for @io_layers;
+    }
     *$globref->autoflush(1);
     $self->Next;
   };
@@ -48,20 +66,45 @@ __END__
 
 =head1 NAME
 
-Test::Trap::Builder::TempFile - Output layer backend using File::Temp
+Test::Trap::Builder::TempFile - Capture strategies using File::Temp
 
 =head1 VERSION
 
-Version 0.2.5
+Version 0.2.5.0_1
 
 =head1 DESCRIPTION
 
-This module provides an implementation I<tempfile>, based on
-File::Temp, for the trap's output layers.  Note that you may specify
-different implementations for each output layer on the trap.
+This module by default provides a capture strategy based on File::Temp
+for the trap's output layers.
+
+The import accepts a name (as a string; default I<tempfile>) and
+options (as a hashref; by default empty), and registers a capture
+strategy with that name and a variant implementation based on the
+options.
+
+Note that you may specify different strategies for each output layer
+on the trap.
 
 See also L<Test::Trap> (:stdout and :stderr) and
 L<Test::Trap::Builder> (output_layer).
+
+=head1 OPTIONS
+
+The following options are recognized:
+
+=head2 preserve_io_layers
+
+A boolean, indicating whether to apply to the handles writing to and
+reading from the tempfile, the same perlio layers as are found on the
+to-be-trapped output handle.
+
+=head2 io_layers
+
+A colon-separated string representing perlio layers to be applied to
+the handles writing to and reading from the tempfile.
+
+If the I<preserve_io_layers> option is set, these perlio layers will
+be applied on top of the original (preserved) perlio layers.
 
 =head1 CAVEATS
 
@@ -72,6 +115,10 @@ after the trap is sprung).
 
 Disk access may be slow -- certainly compared to the in-memory files
 of PerlIO.
+
+If the options specify (explicitly or via preserve on handles with)
+perlio custom layers, they may (or may not) fail to apply to the
+tempfile read and write handles.
 
 Threads?  No idea.  It might even work correctly.
 

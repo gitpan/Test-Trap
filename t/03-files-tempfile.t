@@ -4,8 +4,8 @@
 use strict;
 use warnings;
 
-our $backend;
-$backend = 'TempFile';
+our $strategy;
+$strategy = 'TempFile';
 
 use lib '.';
 require 't/03-files.pl';

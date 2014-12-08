@@ -4,8 +4,8 @@
 use strict;
 use warnings;
 
-our $backend;
-$backend = 'PerlIO';
+our $strategy;
+$strategy = 'PerlIO';
 
 use lib '.';
 require 't/03-files.pl';

@@ -2,7 +2,7 @@
 # -*- mode: cperl ; compile-command: "cd .. ; ./Build ; prove -vb t/06-*.t" -*-
 
 BEGIN { $_ = defined && /(.*)/ && $1 for @ENV{qw/ TMPDIR TEMP TMP /} } # taint vs tempfile
-use Test::More tests => 4*15 + 4*5 + 3*6 + 5*13; # non-default standard layers + output backend + internal exceptions + exits
+use Test::More tests => 4*15 + 4*5 + 3*6 + 5*13; # non-default standard layers + capture strategies + internal exceptions + exits
 use IO::Handle;
 use File::Temp qw( tempfile );
 use Data::Dump qw( dump );
@@ -111,13 +111,13 @@ TEST
 }
 
 # Test the new :output() layer:
-for my $case #    layers                        backendlist             useable
+for my $case #    layers                        strategies              useable
   ( [ Tempfile => [ ':output(tempfile)'      ], '"tempfile"',           1                                  ],
     [ Perlio   => [ ':output(perlio)'        ], '"perlio"',             !!eval q{ use PerlIO 'scalar'; 1 } ],
     [ Mixed    => [ ':output(nosuch;perlio)' ], '("nosuch", "perlio")', !!eval q{ use PerlIO 'scalar'; 1 } ],
     [ Badout   => [ ':output(nosuch)'        ], '"nosuch"',             0                                  ],
   ) {
-  my ($name, $layer, $backendlist, $usable) = @$case;
+  my ($name, $layer, $strategies, $usable) = @$case;
   eval sprintf <<'TEST', ($name) x 2 or diag "Error in $name eval: $@";
 #line 1 (%s)
     BEGIN {
@@ -131,7 +131,7 @@ for my $case #    layers                        backendlist             useable
       $trap->return_is_deeply( ['foo'], "Trapped the STDOUT with $name" );
     }
     else {
-      $trap->die_like( qr/^No output layer implementation found for \Q$backendlist/, "Died with $name" );
+      $trap->die_like( qr/^No capture strategy found for \Q$strategies/, "Died with $name" );
     }
     $trap->warn_is_deeply( [], 'No warnings' );
     1;

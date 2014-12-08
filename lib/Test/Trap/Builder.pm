@@ -1,6 +1,6 @@
 package Test::Trap::Builder;
 
-use version; $VERSION = qv('0.2.5');
+use version; $VERSION = qv('0.2.5.0_1');
 
 use strict;
 use warnings;
@@ -301,7 +301,7 @@ BEGIN { # Layer registration:
     my $code = sub {
       my $class = shift;
       my ($arg) = @_;
-      my $implementation = $self->first_output_layer_backend($arg);
+      my $strategy = $self->first_capture_strategy($arg);
       return sub {
 	my $trap = shift;
 	$trap->{$name} = ''; # XXX: Encapsulation violation!
@@ -310,9 +310,9 @@ BEGIN { # Layer registration:
 	unless (tied *$globref or defined($fileno = fileno *$globref)) {
 	  return $trap->Next;
 	}
-	my $m = $implementation; # placate Devel::Cover:
-	$m = $trap->Prop->{output_backend} unless $m;
-	$m = $self->output_layer_backend('tempfile') unless $m;
+	my $m = $strategy; # placate Devel::Cover:
+	$m = $trap->Prop->{capture_strategy} unless $m;
+	$m = $self->capture_strategy('tempfile') unless $m;
 	$trap->$m($name, $fileno, $globref);
       };
     };
@@ -321,23 +321,26 @@ BEGIN { # Layer registration:
 }
 
 BEGIN {
-  my %backend;
-  sub output_layer_backend {
+  my %strategy;
+  # Backwards compatibility aliases; don't use:
+  *output_layer_backend = \&capture_strategy;
+  *first_output_layer_backend = \&first_capture_strategy;
+  sub capture_strategy {
     my $this = shift;
-    my ($name, $backend) = @_;
-    $backend{$name} = $backend if $backend;
-    return $backend{$name};
+    my ($name, $strategy) = @_;
+    $strategy{$name} = $strategy if $strategy;
+    return $strategy{$name};
   }
-  sub first_output_layer_backend {
+  sub first_capture_strategy {
     my $self = shift;
     my ($arg) = @_;
     return unless $arg;
-    my @backend = split /[,;]/, $arg;
-    for (@backend) {
-      my $implementation = $self->output_layer_backend($_);
-      return $implementation if $implementation;
+    my @strategy = split /[,;]/, $arg;
+    for (@strategy) {
+      my $strategy = $self->capture_strategy($_);
+      return $strategy if $strategy;
     }
-    croak "No output layer implementation found for " . dump(@backend);
+    croak "No capture strategy found for " . dump(@strategy);
   }
 }
 
@@ -377,7 +380,7 @@ Test::Trap::Builder - Backend for building test traps
 
 =head1 VERSION
 
-Version 0.2.5
+Version 0.2.5.0_1
 
 =head1 SYNOPSIS
 
@@ -607,23 +610,31 @@ Registers (by I<NAME> and to the calling trapper) a layer for trapping
 output on the file handle of the I<GLOBREF>, using I<NAME> also as the
 attribute name.
 
-=head2 output_layer_backend NAME, [CODE]
+=head2 capture_strategy NAME, [CODE]
 
 When called with two arguments, registers (by I<NAME> and globally) a
-backend for output trap layers.  When called with a single argument,
-looks up and returns the backend registered by I<NAME> (or undef).
+strategy for output trap layers.  When called with a single argument,
+looks up and returns the strategy registered by I<NAME> (or undef).
 
-When a layer using this backend is applied, the I<CODE> will be called
+When a layer using this strategy is applied, the I<CODE> will be called
 on the trap object, with the layer name and the output handle's fileno
 and globref as arguments.
 
-=head2 first_output_layer_backend SPEC
+=head2 output_layer_backend SPEC
+
+Back-compat alias of the above.
+
+=head2 first_capture_strategy SPEC
 
 Where I<SPEC> is empty, just returns.
 
-Where I<SPEC> is a string of comma-or-semicolon separated backend
-names, runs through the names, returning the first implementation it
-finds.  Dies if no implementation is found by any of these names.
+Where I<SPEC> is a string of comma-or-semicolon separated names, runs
+through the names, returning the first strategy it finds.  Dies if no
+strategy is found by any of these names.
+
+=head2 first_output_layer_backend SPEC
+
+Back-compat alias of the above.
 
 =head2 multi_layer NAME, LAYERS
 
@@ -788,7 +799,7 @@ sprung), and a I<cmp_ok> test method template:
 The interface of this module is likely to remain somewhat in flux for
 a while yet.
 
-The different implementations of output trap layers have their own
+The different strategies for output trap layers have their own
 caveats; see L<Test::Trap::Builder::Tempfile>,
 L<Test::Trap::Builder::PerlIO>, L<Test::Trap::Builder::SystemSafe>.
 

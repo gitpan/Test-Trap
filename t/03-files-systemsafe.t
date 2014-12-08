@@ -4,8 +4,8 @@
 use strict;
 use warnings;
 
-our $backend;
-$backend = 'SystemSafe';
+our $strategy;
+$strategy = 'SystemSafe';
 
 use lib '.';
 require 't/03-files.pl';

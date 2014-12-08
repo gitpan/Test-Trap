@@ -1,6 +1,6 @@
 package Test::Trap::Builder::PerlIO;
 
-use version; $VERSION = qv('0.2.5');
+use version; $VERSION = qv('0.2.5.0_1');
 
 use strict;
 use warnings;
@@ -8,7 +8,7 @@ use Test::Trap::Builder;
 use PerlIO 'scalar';
 
 sub import {
-  Test::Trap::Builder->output_layer_backend( perlio => $_ ) for sub {
+  Test::Trap::Builder->capture_strategy( perlio => $_ ) for sub {
     my $self = shift;
     my ($name, $fileno, $globref) = @_;
     local *$globref;
@@ -26,17 +26,17 @@ __END__
 
 =head1 NAME
 
-Test::Trap::Builder::PerlIO - Output layer backend using PerlIO::scalar
+Test::Trap::Builder::PerlIO - Capture strategy using PerlIO::scalar
 
 =head1 VERSION
 
-Version 0.2.5
+Version 0.2.5.0_1
 
 =head1 DESCRIPTION
 
-This module provides an implementation I<perlio>, based on
+This module provides a capture strategy I<perlio>, based on
 PerlIO::scalar, for the trap's output layers.  Note that you may
-specify different implementations for each output layer on the trap.
+specify different strategies for each output layer on the trap.
 
 See also L<Test::Trap> (:stdout and :stderr) and
 L<Test::Trap::Builder> (output_layer).

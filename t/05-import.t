@@ -40,21 +40,21 @@ eval { Test::Trap->import(qw( test1 $T1 :stdout(perlio) )) };
 like( $@,
       $got{perlio} ?
       qr/\A\z/ :
-      qr/^\QNo output layer implementation found for "perlio" at ${\__FILE__} line/,
-      'Export of PerlIO implementation :stdout(perlio)',
+      qr/^\QNo capture strategy found for "perlio" at ${\__FILE__} line/,
+      'Export of capture strategy :stdout(perlio)',
     );
 
 eval { Test::Trap->import(qw( test2 $T2 :stdout(nosuch;tempfile) )) };
 like( $@,
       $got{tempfile} ?
       qr/\A\z/ :
-      qr/^\QNo output layer implementation found for ("nosuch", "tempfile") at ${\__FILE__} line/,
-      'Export of PerlIO implementation :stdout(nosuch;tempfile)',
+      qr/^\QNo capture strategy found for ("nosuch", "tempfile") at ${\__FILE__} line/,
+      'Export of capture strategy :stdout(nosuch;tempfile)',
     );
 
 eval { Test::Trap->import(qw( test2 $T2 :stdout(nosuch1;nosuch2) )) };
 like( $@,
-      qr/^\QNo output layer implementation found for ("nosuch1", "nosuch2") at ${\__FILE__} line/,
-      'Export of PerlIO implementation :stdout(nosuch1;nosuch2)',
+      qr/^\QNo capture strategy found for ("nosuch1", "nosuch2") at ${\__FILE__} line/,
+      'Export of capture strategy:stdout(nosuch1;nosuch2)',
     );
 

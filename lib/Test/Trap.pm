@@ -1,6 +1,6 @@
 package Test::Trap;
 
-use version; $VERSION = qv('0.2.5');
+use version; $VERSION = qv('0.2.5.0_1');
 
 use strict;
 use warnings;
@@ -115,10 +115,13 @@ $B->layer(die => $_) for sub {
 $B->output_layer( stdout => \*STDOUT );
 $B->output_layer( stderr => \*STDERR );
 BEGIN {
-  # Make available some backends:
+  # Make available some capture strategies:
   use Test::Trap::Builder::TempFile;
-  eval q{ use Test::Trap::Builder::PerlIO }; # optional
-  eval q{ use Test::Trap::Builder::SystemSafe }; # optional
+  use Test::Trap::Builder::TempFile 'tempfile-preserve' => { preserve_io_layers => 1 };
+  # optional capture strategies:
+  eval q{ use Test::Trap::Builder::PerlIO };
+  eval q{ use Test::Trap::Builder::SystemSafe };
+  eval q{ use Test::Trap::Builder::SystemSafe 'systemsafe-preserve' => { preserve_io_layers => 1 } };
 }
 
 # A simple layer for warnings:
@@ -146,11 +149,11 @@ $B->layer(warn => $_) for sub {
   $self->Next;
 };
 
-# Pseudo-layers:
+# Multi-layers:
 $B->multi_layer(flow => qw/ raw die exit /);
 $B->multi_layer(default => qw/ flow stdout stderr warn /);
 
-# Non-default pseudo-layers:
+# Non-default non-trapping layers:
 $B->layer( void => $_ ) for sub {
   my $self = shift;
   undef $self->{wantarray};
@@ -174,9 +177,9 @@ $B->layer( on_fail => $_ ) for sub {
 };
 $B->layer( output => $_ ) for sub {
   my $self = shift;
-  my $implementation = eval { $B->first_output_layer_backend(@_) };
+  my $strategy = eval { $B->first_capture_strategy(@_) };
   $self->Exception($@) if $@;
-  $self->Prop('Test::Trap::Builder')->{output_backend} = $implementation;
+  $self->Prop('Test::Trap::Builder')->{capture_strategy} = $strategy;
   $self->Next;
 };
 
@@ -301,7 +304,7 @@ Test::Trap - Trap exit codes, exceptions, output, etc.
 
 =head1 VERSION
 
-Version 0.2.5
+Version 0.2.5.0_1
 
 =head1 SYNOPSIS
 
@@ -368,14 +371,15 @@ following layers are pre-defined by this module:
 
 =head2 :raw
 
-The terminating layer, at which the processing of the layers stops,
-and the actual call to the user code is performed.  On success, it
-collects the return value(s) in the appropriate context.  Pushing the
-:raw layer on a trap will for most purposes remove all layers below.
+The only built-in terminating layer, at which the processing of the
+layers stops, and the actual call to the user code is performed.  On
+success, it collects the return value(s) in the appropriate context.
+Pushing the :raw layer on a trap will for most purposes remove all
+layers below.
 
 =head2 :die
 
-The layer emulating block eval, capturing normal exceptions.
+The layer emulating block eval, trapping normal exceptions.
 
 =head2 :exit
 
@@ -385,8 +389,9 @@ CAVEATS below for more.)
 
 =head2 :flow
 
-A pseudo-layer shortcut for :raw:die:exit.  Since this includes :raw,
-pushing :flow on a trap will remove all layers below.
+A shortcut for :raw:die:exit (effectively pushing all three layers on
+the trap).  Since this includes :raw, it is also terminating:  Pushing
+:flow on a trap will effectively remove all layers below.
 
 =head2 :stdout, :stderr
 
@@ -394,22 +399,22 @@ Layers trapping Perl output on STDOUT and STDERR, respectively.
 
 =head2 :stdout(perlio), :stderr(perlio)
 
-As above, but specifying a backend implemented using PerlIO::scalar.
-If this backend is not available (typically if PerlIO is not), this is
-an error.
+As above, but specifying a capture strategy using PerlIO::scalar.  If
+this strategy is not available (typically if PerlIO is not), this is
+an error.  See L</"CAPTURE STRATEGIES">.
 
 =head2 :stdout(tempfile), :stderr(tempfile)
 
-As above, but specifying a backend implemented using File::Temp.  Note
-that this is the default implementation, unless the C<:output()> layer
-is used to set another default.
+As above, but specifying a capture strategy using File::Temp.  Note
+that this is the default strategy, unless the C<:output()> layer is
+used to set another default.  See L</"CAPTURE STRATEGIES">.
 
 =head2 :stdout(a;b;c), :stderr(a,b,c)
 
 (Either syntax, commas or semicolons, is permitted, as is any number
-of names in the list.)  As above, but specifying the backend
-implementation by the first existing name among I<a>, I<b>, and I<c>.
-If no such implementation is available, this is an error.
+of names in the list.)  As above, but specifying the capture strategy
+by the first existing name among I<a>, I<b>, and I<c>.  If no such
+strategy is found, this is an error.  See L</"CAPTURE STRATEGIES">.
 
 =head2 :warn
 
@@ -419,26 +424,30 @@ the :stderr layer, be it above or below the :warn layer.)
 
 =head2 :default
 
-A pseudo-layer short-cut for :raw:die:exit:stdout:stderr:warn.  Since
-this includes :raw, pushing :default on a trap will remove all layers
-below.  The other interesting property of :default is that it is what
-every trap starts with:  In order not to include any of the six layers
-that make up :default, you need to push a terminating layer (such as
-:raw or :flow) on the trap.
+A short-cut for :raw:die:exit:stdout:stderr:warn (effectively pushing
+all six layers on the trap).  Since this includes :raw, it is also
+terminating:  Pushing :default on a trap will effectively remove all
+layers below.
+
+The other interesting property of :default is that it is what every
+trap starts with:  In order not to include the six layers that make up
+:default, you need to push a terminating layer (such as :raw or :flow)
+on the trap.
 
 =head2 :on_fail(m)
 
-A (non-default) pseudo-layer that installs a callback method (by name)
-I<m> to be run on test failures.  To run the L</"diag_all"> method
-every time a test fails:
+A (non-default, non-trapping) layer that installs a callback method
+(by name) I<m> to be run on test failures.  To run the L</"diag_all">
+method every time a test fails:
 
   use Test::Trap qw/ :on_fail(diag_all) /;
 
 =head2 :void, :scalar, :list
 
-Runs the trapped user code in void, scalar, or list context,
-respectively.  (By default, the code is run in whatever context the
-trap itself is in.)
+These (non-default, non-trapping) layers will cause the trapped user
+code to be run in void, scalar, or list context, respectively.  (By
+default, the trap will propagate context, that is, it will run the
+code in whatever context the trap itself is in.)
 
 If more than one of these layers are pushed on the trap, the deepest
 (that is, leftmost) takes precedence:
@@ -449,12 +458,75 @@ If more than one of these layers are pushed on the trap, the deepest
 
 =head2 :output(a;b;c)
 
-A (non-default) pseudo-layers that sets the default backend layer
-implementation for any output trapping (C<:stdout>, C<:stderr>, or
-other similarly defined) layers already on the trap.
+A (non-default, non-trapping) layer that sets the default capture
+strategy for any output trapping (C<:stdout>, C<:stderr>, or other
+similarly defined) layers below iton the trap.
 
   use Test::Trap qw/ :output(systemsafe) /;
   trap { system echo => 'Hello Unix!' }; # trapped!
+
+  use Test::Trap qw/ :flow:stderr:output(systemsafe):stdout /;
+  trap { system echo => 'Hello Unix!' }; # *not* trapped!
+  trap { system q/ echo 'Hello Unix!' >&2 / }; # trapped!
+
+See L</"CAPTURE STRATEGIES">.
+
+=head1 CAPTURE STRATEGIES
+
+How output is trapped, depends on the capture strategy used.  It is
+possible to register more (see L<Test::Trap::Builder>), but the
+following strategies are pre-defined by this module:
+
+=head2 tempfile
+
+The default capture strategy, provided by
+L<Test::Trap::Builder::TempFile>, in which output is temporarily
+redirected to (and read back from) a tempfile.
+
+=head2 tempfile-preserve
+
+A variant of the capture strategy provided by
+L<Test::Trap::Builder::TempFile>, in which the handles used to write
+to and read from the tempfile are both binmoded with the same perlio
+layers as the trapped output handle originally had.
+
+Caveat emptor: If the handle has perlio custom layers, they may (or
+may not) fail to apply to the tempfile read and write handles.
+
+=head2 systemsafe
+
+A capture strategy provided by L<Test::Trap::Builder::SystemSafe>,
+like the default strategy, except it outputs on file handles with the
+same file descriptors as the trapped output handle originally had, and
+so can be used to trap output from forked-off processes, including
+system().
+
+This strategy may be "safe" in relation to forked-off processes, but
+it is fragile.  For one, it only works with handles that have "real"
+file descriptors.  For another, it depends on the original file
+descriptors being available after closing.  (If signal handlers or
+threads open files, they may well not be.)  And it may fail in other
+ways.  But in relation to forked-off processes, the other pre-defined
+strategies will silently fail to trap, as will similarly simple
+strategies.  This one, when not crashing, will trap that output.
+
+=head2 systemsafe-preserve
+
+A variant of the capture strategy provided by
+L<Test::Trap::Builder::SystemSafe>, in which the handles used to write
+to and read from the tempfile are both binmoded with the same perlio
+layers as the trapped output handle originally had.
+
+Caveat emptor: If the handle has perlio custom layers, they may (or
+may not) fail to apply to the tempfile read and write handles.
+
+=head2 perlio
+
+A capture strategy provided by L<Test::Trap::Builder::PerlIO>, in
+which output is temporarily redirected to an in-memory file via
+PerlIO::scalar.
+
+If PerlIO::scalar is not available, neither is this strategy.
 
 =head1 RESULT ACCESSORS
 

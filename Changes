@@ -1,5 +1,56 @@
 Revision history for Test-Trap
 
+0.2.5.0_1 (possibly 0.3.0b?)
+	This release, in brief:
+        - renames "(output layer) backend implementation" to
+          "(capture) strategy", for more standard nomenclature
+          (and less of a mouthful);
+        - renames "pseudo-layer" to "multi-layer" (if so declared) or
+          "non-trapping layer" (neither is a direct analogue to PerlIO
+          pseudo layers, so the nomenclature was misleading);
+        - adds (import) options to the TempFile and SystemSafe capture
+	  strategy factories; and
+        - fixes a bug in SystemSafe.
+        And, in more detail ...
+        Test::Trap::Builder:
+        - Changes method names in accordance with nomenclature
+          changes, leaving back-compat aliases behind.
+        - Changes error message in accordance with nomenclature
+          changes.  (No back-compat possible, sorry.)
+        - Updates the documentation.
+        Test::Trap::Builder::{TempFile,SystemSafe}:
+        - Import now takes arguments:
+		strategy name (default {"tempfile","systemsafe"}); and
+                strategy options (default empty hash).
+        - The following options are supported:
+		preserve_io_layers (boolean; default false); and
+        	io_layers (colon-separated string; default unset).
+        Test::Trap::Builder::SystemSafe:
+        - Fixes a bug where the original perlio layers were not
+	  restored after the trap was sprung.
+        Test::Trap::Builder::{PerlIO,TempFile,SystemSafe}:
+        - Updates the code in accordance with Test::Trap::Builder
+          changes; see above.
+        - Updates the documentation.
+        Test::Trap:
+        - Imports new capture strateg, "tempfile-preserve", from
+          TempFile with option preserve_io_layers.
+        - Imports new capture strateg, "systemsafe-preserve", from
+          SystemSafe with option preserve_io_layers.
+        - Updates the code in accordance with Test::Trap::Builder
+          changes; see above.
+        - Updates the documentation.
+        Tests:
+        - changes variable names and comments in accordance with
+          nomenclature changes;
+        - adds tests for the no-restore bug in t/03-files.pl (hence
+          for each tested strategy);
+        - adds t/03-files-{tempfile,systemsafe}-preserve.t to run the
+          basic tests against the new capture strategies;
+        - accounts for the changed error message in t/06-layers.t;
+        - adds t/{15-tempfile,16-systemsafe}-options.t to check
+          capture strategies of varying options.
+
 0.2.5	Sun Nov 16 18:31:42 CET 2014
 	This release localizes $! (ERRNO) for internal operations that
 	change it, as suggested by Felipe Gasper.  For the same

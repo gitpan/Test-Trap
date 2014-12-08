@@ -1,6 +1,6 @@
 package Test::Trap::Builder::SystemSafe;
 
-use version; $VERSION = qv('0.2.5');
+use version; $VERSION = qv('0.2.5.0_1');
 
 use strict;
 use warnings;
@@ -8,8 +8,19 @@ use Test::Trap::Builder;
 use File::Temp qw( tempfile );
 use IO::Handle;
 
+########
+#
+# I can no longer (easily?) install Devel::Cover on 5.6.2, so silence the coverage report:
+#
+# uncoverable condition right
+# uncoverable condition false
+use constant GOTPERLIO => (eval "use PerlIO (); 1" || 0);
+
 sub import {
-  Test::Trap::Builder->output_layer_backend( systemsafe => $_ ) for sub {
+  shift; # package name
+  my $strategy_name = @_ ? shift : 'systemsafe';
+  my $strategy_option = @_ ? shift : {};
+  Test::Trap::Builder->capture_strategy( $strategy_name => $_ ) for sub {
     my $self = shift;
     my ($name, $fileno, $globref) = @_;
     my $pid = $$;
@@ -20,7 +31,7 @@ sub import {
       local ($!, $^E);
       tempfile( UNLINK => 1 ); # XXX: Test?
     };
-    my ($fh_keeper, $autoflush_keeper);
+    my ($fh_keeper, $autoflush_keeper, @io_layers, @restore_io_layers);
     my $Die = $self->ExceptionFunction;
     for my $buffer ($self->{$name}) {
       $self->Teardown($_) for sub {
@@ -45,6 +56,14 @@ sub import {
                      );
         close $fh_keeper; # another potential leak, I suppose.
         $globref->autoflush($autoflush_keeper);
+      IO_LAYERS: {
+          GOTPERLIO or last IO_LAYERS;
+          local($!, $^E);
+          binmode *$globref;
+          my @tmp = @restore_io_layers;
+          $_ eq $tmp[0] ? shift @tmp : last for PerlIO::get_layers(*$globref);
+          binmode *$globref, $_ for @tmp;
+        }
       };
     }
     binmode $fh; # superfluous?
@@ -53,6 +72,17 @@ sub import {
       open $fh_keeper, ">&$fileno"
         or $self->Exception("Cannot dup '$fileno' for $name: '$!'");
     }
+  IO_LAYERS: {
+      GOTPERLIO or last IO_LAYERS;
+      local($!, $^E);
+      @restore_io_layers = PerlIO::get_layers(*$globref, output => 1);
+      if ($strategy_option->{preserve_io_layers}) {
+        @io_layers = @restore_io_layers;
+      }
+      if ($strategy_option->{io_layers}) {
+        push @io_layers, $strategy_option->{io_layers};
+      }
+    }
     $autoflush_keeper = $globref->autoflush;
     _close_reopen( $self->ExceptionFunction, $globref, $fileno, ">>$file",
                    sub {
@@ -60,7 +90,16 @@ sub import {
                        $file, $name, $!;
                    },
                  );
-    binmode *$globref; # must write with the same mode as we read.
+  IO_LAYERS: {
+      GOTPERLIO or last IO_LAYERS;
+      local($!, $^E);
+      for my $h (*$globref, $fh) {
+        binmode $h;
+        my @tmp = @io_layers or next;
+        $_ eq $tmp[0] ? shift @tmp : last for PerlIO::get_layers($h);
+        binmode $h, $_ for @tmp;
+      }
+    }
     $globref->autoflush(1);
     $self->Next;
   };
@@ -98,23 +137,49 @@ __END__
 
 =head1 NAME
 
-Test::Trap::Builder::SystemSafe - "Safe" output layer backend using File::Temp
+Test::Trap::Builder::SystemSafe - "Safe" capture strategies using File::Temp
 
 =head1 VERSION
 
-Version 0.2.5
+Version 0.2.5.0_1
 
 =head1 DESCRIPTION
 
-This module provides an implementation I<systemsafe>, based on
-File::Temp, for the trap's output layers.  This implementation insists
-on reopening the output file handles with the same descriptors, and
+This module provides capture strategies I<systemsafe>, based on
+File::Temp, for the trap's output layers.  These strategies insists on
+reopening the output file handles with the same descriptors, and
 therefore, unlike L<Test::Trap::Builder::TempFile> and
 L<Test::Trap::Builder::PerlIO>, is able to trap output from forked-off
 processes, including system().
 
+The import accepts a name (as a string; default I<systemsafe>) and
+options (as a hashref; by default empty), and registers a capture
+strategy with that name and a variant implementation based on the
+options.
+
+Note that you may specify different strategies for each output layer
+on the trap.
+
 See also L<Test::Trap> (:stdout and :stderr) and
 L<Test::Trap::Builder> (output_layer).
+
+=head1 OPTIONS
+
+The following options are recognized:
+
+=head2 preserve_io_layers
+
+A boolean, indicating whether to apply to the handles writing to and
+reading from the tempfile, the same perlio layers as are found on the
+to-be-trapped output handle.
+
+=head2 io_layers
+
+A colon-separated string representing perlio layers to be applied to
+the handles writing to and reading from the tempfile.
+
+If the I<preserve_io_layers> option is set, these perlio layers will
+be applied on top of the original (preserved) perlio layers.
 
 =head1 CAVEATS
 
@@ -126,7 +191,7 @@ after the trap is sprung).
 Disk access may be slow -- certainly compared to the in-memory files
 of PerlIO.
 
-If the file handle we try to trap using this backend is on an
+If the file handle we try to trap using this strategy is on an
 in-memory file, it would not be available to other processes in any
 case.  Rather than change the semantics of the trapped code or
 silently fail to trap output from forked-off processes, we just raise
@@ -135,6 +200,10 @@ an exception in this case.
 If there is another file handle with the same descriptor (f ex after
 an C<< open OTHER, '>&=', THIS >>), we can't get that file descriptor.
 Rather than silently fail, we again raise an exception.
+
+If the options specify (explicitly or via preserve on handles with)
+perlio custom layers, they may (or may not) fail to apply to the
+tempfile read and write handles.
 
 Threads?  No idea.  It might even work correctly.
 
