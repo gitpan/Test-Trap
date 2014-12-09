@@ -1,6 +1,6 @@
 Revision history for Test-Trap
 
-0.2.5.0_1 (possibly 0.3.0b?)
+0.2.5.0_x (possibly 0.3.0b?)
 	This release, in brief:
         - renames "(output layer) backend implementation" to
           "(capture) strategy", for more standard nomenclature

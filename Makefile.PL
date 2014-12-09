@@ -24,8 +24,8 @@ WriteMakefile
   'INSTALLDIRS' => 'site',
   'EXE_FILES' => [],
   'PL_FILES' => {
-                  't/11-systemsafe-basic.PL' => 't/11-systemsafe-basic.t',
-                  't/08-fork.PL' => 't/08-fork.t'
+                  't/08-fork.PL' => 't/08-fork.t',
+                  't/11-systemsafe-basic.PL' => 't/11-systemsafe-basic.t'
                 }
 )
 ;

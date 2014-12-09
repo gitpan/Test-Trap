@@ -15,8 +15,9 @@ use Test::More tests => 3*2*5;
 use strict;
 use warnings;
 
-use Test::Trap::Builder::SystemSafe utf8   => { io_layers => ':utf8:crlf' };
-use Test::Trap::Builder::SystemSafe both   => { io_layers => ':utf8:crlf', preserve_io_layers => 1 };
+# For compatibility with perl <= 5.8.8, :crlf must be applied before :utf8.
+use Test::Trap::Builder::SystemSafe utf8   => { io_layers => ':crlf:utf8' };
+use Test::Trap::Builder::SystemSafe both   => { io_layers => ':crlf:utf8', preserve_io_layers => 1 };
 use Test::Trap::Builder::SystemSafe latin2 => { io_layers => ':encoding(iso-8859-2)' };
 use Test::Trap qw/ $basic    basic    :output(systemsafe)          /;
 use Test::Trap qw/ $preserve preserve :output(systemsafe-preserve) /;
