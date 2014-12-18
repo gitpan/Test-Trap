@@ -1,22 +1,27 @@
 Revision history for Test-Trap
 
-0.2.5.0_x (possibly 0.3.0b?)
+0.3.0	Thu Dec 18 21:57:51 CET 2014
 	This release, in brief:
-        - renames "(output layer) backend implementation" to
-          "(capture) strategy", for more standard nomenclature
-          (and less of a mouthful);
-        - renames "pseudo-layer" to "multi-layer" (if so declared) or
-          "non-trapping layer" (neither is a direct analogue to PerlIO
-          pseudo layers, so the nomenclature was misleading);
+        - improves clarity through nomenclature:
+              * renames "(output layer) backend implementation" to
+                "(capture) strategy", for more standard nomenclature
+                (and less of a mouthful);
+              * renames "pseudo-layer" to "multi-layer" (if so
+                declared) or "non-trapping layer" (neither is a direct
+                analogue to PerlIO pseudo layers, so the nomenclature
+                was misleading);
         - adds (import) options to the TempFile and SystemSafe capture
-	  strategy factories; and
+	  strategy factories, allowing for different ways to handle
+	  PerlIO layers;
+        - using these for two new standard capture strategies,
+          "tempfile-preserve" and "systemsafe-preserve"; and
         - fixes a bug in SystemSafe.
         And, in more detail ...
         Test::Trap::Builder:
-        - Changes method names in accordance with nomenclature
-          changes, leaving back-compat aliases behind.
-        - Changes error message in accordance with nomenclature
-          changes.  (No back-compat possible, sorry.)
+        - Changes method names per the nomenclature changes, leaving
+          back-compat aliases behind.
+        - Changes error message per the nomenclature changes.  (No
+          back-compat possible, sorry.)
         - Updates the documentation.
         Test::Trap::Builder::{TempFile,SystemSafe}:
         - Import now takes arguments:
@@ -33,9 +38,9 @@ Revision history for Test-Trap
           changes; see above.
         - Updates the documentation.
         Test::Trap:
-        - Imports new capture strateg, "tempfile-preserve", from
+        - Imports new capture strategy, "tempfile-preserve", from
           TempFile with option preserve_io_layers.
-        - Imports new capture strateg, "systemsafe-preserve", from
+        - Imports new capture strategy, "systemsafe-preserve", from
           SystemSafe with option preserve_io_layers.
         - Updates the code in accordance with Test::Trap::Builder
           changes; see above.
